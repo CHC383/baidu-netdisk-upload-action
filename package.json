@@ -2,10 +2,11 @@
     "name": "baidu-netdisk-upload-action",
     "version": "1.0.0",
     "description": "Github action to upload files to Baidu Netdisk using BaiduPCS-Go",
+    "type": "module",
     "main": "src/index.ts",
     "repository": "git@github.com:openblockcc/baidu-netdisk-upload-action.git",
     "scripts": {
-        "lint": "eslint . --ext .js --fix",
+        "lint": "eslint . --ext .ts --fix",
         "build": "tsc && ncc build --source-map --minify --license licenses.txt"
     },
     "author": "ArthurZheng",
@@ -17,12 +18,20 @@
         "unzipper": "^0.12.3"
     },
     "devDependencies": {
+        "@eslint/js": "^10.0.1",
         "@types/node": "^16.18.126",
         "@types/unzipper": "^0.10.11",
+        "@typescript-eslint/parser": "^8.56.1",
         "@vercel/ncc": "^0.38.3",
-        "eslint": "^5.16.0",
-        "eslint-config-scratch": "^5.1.0",
-        "typescript": "^5.9.3"
+        "eslint": "^10.0.3",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-import-resolver-typescript": "^4.4.4",
+        "eslint-plugin-import-x": "^4.16.1",
+        "eslint-plugin-unicorn": "^63.0.0",
+        "globals": "^17.4.0",
+        "jiti": "^2.6.1",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.56.1"
     },
     "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017"
 }
