@@ -19,7 +19,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "@types/node": "^16.18.126",
+        "@types/node": "^24.11.0",
         "@types/unzipper": "^0.10.11",
         "@typescript-eslint/parser": "^8.56.1",
         "@vercel/ncc": "^0.38.3",
