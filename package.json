@@ -6,7 +6,8 @@
     "main": "src/index.ts",
     "repository": "git@github.com:openblockcc/baidu-netdisk-upload-action.git",
     "scripts": {
-        "lint": "eslint . --ext .ts --fix",
+        "lint": "eslint .",
+        "lint-fix": "eslint . --fix",
         "build": "tsc && ncc build --source-map --minify --license licenses.txt"
     },
     "author": "ArthurZheng",
