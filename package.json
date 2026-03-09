@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "lint-fix": "eslint . --fix",
     "package": "rimraf ./dist && rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
+    "postinstall": "pnpm package",
     "prepare": "husky"
   },
   "dependencies": {
