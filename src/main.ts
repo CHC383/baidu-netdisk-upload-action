@@ -11,8 +11,9 @@ import { glob } from "glob";
 
 export async function run(): Promise<void> {
   try {
-    // Fixed BaiduPCS-Go version (latest release asset naming)
-    const baiduPcsGoVersion = "3.9.6";
+    // https://github.com/qjfoidnh/BaiduPCS-Go/releases
+    // BaiduPCS-Go version for assert url and naming
+    const baiduPcsGoVersion = "4.0.0";
 
     // Inputs from workflow
     const bduss = core.getInput("bduss", { required: true });

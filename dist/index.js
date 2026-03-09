@@ -32120,8 +32120,9 @@ globstar while`,t,d,e,f,m),this.matchOne(t.slice(d),e.slice(f),s))return this.de
 
 async function run() {
     try {
-        // Fixed BaiduPCS-Go version (latest release asset naming)
-        const baiduPcsGoVersion = "3.9.6";
+        // https://github.com/qjfoidnh/BaiduPCS-Go/releases
+        // BaiduPCS-Go version for assert url and naming
+        const baiduPcsGoVersion = "4.0.0";
         // Inputs from workflow
         const bduss = getInput("bduss", { required: true });
         const stoken = getInput("stoken", { required: true });
