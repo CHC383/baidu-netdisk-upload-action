@@ -15,6 +15,7 @@ export default defineConfig(
         projectService: {
           allowDefaultProject: [
             "eslint.config.ts",
+            "lint-staged.config.ts",
             "prettier.config.ts",
             "rollup.config.ts",
           ],
