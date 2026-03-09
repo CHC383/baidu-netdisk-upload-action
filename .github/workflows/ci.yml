@@ -3,7 +3,7 @@ name: CI
 on: push
 
 jobs:
-  lint:
+  test-typescript:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,20 +27,5 @@ jobs:
       - name: Lint check
         run: pnpm lint
 
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
+      - name: dist check
+        run: scripts/check_dist.sh
