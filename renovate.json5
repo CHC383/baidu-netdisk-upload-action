@@ -1,0 +1,32 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":maintainLockFilesMonthly",
+    ":semanticCommitTypeAll(build)",
+    ":dependencyDashboard",
+    "workarounds:typesNodeVersioning",
+  ],
+  rangeStrategy: "bump",
+  postUpdateOptions: ["pnpmDedupe"],
+  postUpgradeTasks: [
+    {
+      command: "pnpm check-dist",
+    },
+  ],
+  prHourlyLimit: 0,
+  packageRules: [
+    {
+      description: "Enable auto merge for minor, patch and lock file maintenance updates",
+      matchUpdateTypes: ["minor", "patch", "lockFileMaintenance"],
+      automerge: true,
+      platformAutomerge: true,
+    },
+    {
+      description: "Don't bump engines field in package.json",
+      matchManagers: ["npm"],
+      matchDepTypes: ["engines"],
+      rangeStrategy: "auto",
+    },
+  ],
+}
