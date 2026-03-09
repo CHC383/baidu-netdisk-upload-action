@@ -6,8 +6,8 @@ import { finished } from "node:stream/promises";
 
 import * as core from "@actions/core";
 import { exec } from "@actions/exec";
+import AdmZip from "adm-zip";
 import { glob } from "glob";
-import { Extract } from "unzipper";
 
 export async function run(): Promise<void> {
   try {
@@ -37,11 +37,9 @@ export async function run(): Promise<void> {
     // Extract the archive using unzipper
     const extractDirectory = path.join(process.cwd(), "baidupcs");
     fs.mkdirSync(extractDirectory, { recursive: true });
-    core.info("Extracting archive using unzipper");
-    await fs
-      .createReadStream(zipPath)
-      .pipe(Extract({ path: extractDirectory }))
-      .promise();
+    core.info("Extracting archive using adm-zip");
+    const zipFile = new AdmZip(zipPath);
+    zipFile.extractAllTo(extractDirectory, true);
 
     // Locate the executable recursively in extractDir
     const exePattern =
