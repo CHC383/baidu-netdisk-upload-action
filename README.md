@@ -18,3 +18,16 @@ steps:
       remote-dir: "/Apps/Release/"
       upload-policy: "skip" # Optional: skip (default), overwrite, rsync
 ```
+
+## Supported platforms
+
+These are limited by
+[Node supported platforms](https://github.com/nodejs/node/blob/main/BUILDING.md#supported-platforms)
+and [BaiduPCS-Go prebuilt binaries](https://github.com/qjfoidnh/BaiduPCS-Go/releases).
+
+| Platform | Architectures   |
+| -------- | --------------- |
+| Linux    | x64, arm64, arm |
+| Windows  | x64, arm64      |
+| macOS    | x64, arm64      |
+| FreeBSD  | x64             |
