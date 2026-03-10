@@ -1,20 +1,27 @@
 name: Baidu Netdisk Upload
 description: Use BaiduPCS-Go to upload files to Baidu Netdisk
 author: Henry Cai <huacong.cai@gmail.com>
+
 runs:
   using: node24
   main: dist/index.js
+
 inputs:
   bduss:
-    description: BDUSS token for Baidu Cloud Disk authentication
+    description: BDUSS token for Baidu NetDisk authentication
     required: true
   stoken:
-    description: STOKEN for Baidu Cloud Disk authentication
+    description: STOKEN for Baidu NetDisk authentication
     required: true
   target:
     description: Local file or directory pattern to upload (supports glob syntax)
     required: true
   remote-dir:
-    description: Target directory path on Baidu Cloud Disk
+    description: Target directory path on Baidu NetDisk
     required: true
+  upload-policy:
+    description: BaiduPCS-Go upload policy - "skip" (default), "overwrite", "rsync"
+    required: false
+    default: "skip"
+
 outputs: {}

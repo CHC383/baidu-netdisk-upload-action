@@ -32120,6 +32120,7 @@ async function run() {
         const stoken = getInput("stoken", { required: true });
         const targetPattern = getInput("target", { required: true });
         const remoteDirectory = getInput("remote-dir", { required: true });
+        const uploadPolicy = getInput("upload-policy") || "skip";
         // Determine download URL based on OS platform/arch
         const platform = os$1.platform();
         const arch = os$1.arch();
@@ -32150,7 +32151,13 @@ async function run() {
             .map((dirent) => path$1.join(dirent.parentPath, dirent.name))
             .join(" ");
         info(`Uploading files: ${filePaths}`);
-        await exec(exePath, ["upload", filePaths, remoteDirectory]);
+        await exec(exePath, [
+            "upload",
+            "--policy",
+            uploadPolicy,
+            filePaths,
+            remoteDirectory,
+        ]);
     }
     catch (error) {
         if (error instanceof Error) {

@@ -18,6 +18,7 @@ export async function run(): Promise<void> {
     const stoken = core.getInput("stoken", { required: true });
     const targetPattern = core.getInput("target", { required: true });
     const remoteDirectory = core.getInput("remote-dir", { required: true });
+    const uploadPolicy = core.getInput("upload-policy") || "skip";
 
     // Determine download URL based on OS platform/arch
     const platform = os.platform();
@@ -65,7 +66,13 @@ export async function run(): Promise<void> {
       .map((dirent) => path.join(dirent.parentPath, dirent.name))
       .join(" ");
     core.info(`Uploading files: ${filePaths}`);
-    await exec(exePath, ["upload", filePaths, remoteDirectory]);
+    await exec(exePath, [
+      "upload",
+      "--policy",
+      uploadPolicy,
+      filePaths,
+      remoteDirectory,
+    ]);
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(error.message);
