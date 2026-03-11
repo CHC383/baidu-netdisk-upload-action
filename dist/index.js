@@ -32149,15 +32149,13 @@ async function run() {
             throw new Error(`No files matched pattern: ${targetPattern}`);
         }
         // Upload files
-        const filePaths = files
-            .map((dirent) => path$1.join(dirent.parentPath, dirent.name))
-            .join(" ");
-        info(`Uploading files: ${filePaths}`);
+        const filePaths = files.map((dirent) => path$1.join(dirent.parentPath, dirent.name));
+        info(`Uploading files: ${filePaths.join(" ")}`);
         await exec(exePath, [
             "upload",
             "--policy",
             uploadPolicy,
-            filePaths,
+            ...filePaths,
             remoteDirectory,
         ]);
     }
