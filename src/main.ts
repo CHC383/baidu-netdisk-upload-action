@@ -64,15 +64,15 @@ export async function run(): Promise<void> {
     }
 
     // Upload files
-    const filePaths = files
-      .map((dirent) => path.join(dirent.parentPath, dirent.name))
-      .join(" ");
-    core.info(`Uploading files: ${filePaths}`);
+    const filePaths = files.map((dirent) =>
+      path.join(dirent.parentPath, dirent.name),
+    );
+    core.info(`Uploading files: ${filePaths.join(" ")}`);
     await exec(exePath, [
       "upload",
       "--policy",
       uploadPolicy,
-      filePaths,
+      ...filePaths,
       remoteDirectory,
     ]);
   } catch (error) {
