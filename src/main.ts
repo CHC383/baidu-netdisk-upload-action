@@ -33,11 +33,12 @@ export async function run(): Promise<void> {
     const zipPath = path.join(process.cwd(), assetName);
     core.info(`Downloading BaiduPCS-Go from: ${downloadUrl}`);
     await downloadFile(downloadUrl, zipPath);
+    core.info(`BaiduPCS-Go is downloaded to: ${zipPath}`);
 
     // Extract the archive
     const extractDirectory = path.join(process.cwd(), "baidupcs");
+    core.info(`Extracting BaiduPCS-Go archive to: ${extractDirectory}`);
     fs.mkdirSync(extractDirectory);
-    core.info("Extracting archive");
     const zipFile = new AdmZip(zipPath);
     zipFile.extractAllTo(extractDirectory, true);
 
@@ -49,11 +50,12 @@ export async function run(): Promise<void> {
     );
     fs.chmodSync(exePath, fs.constants.S_IRWXU);
 
-    // Log in to Baidu Cloud Disk
-    core.info("Logging in to Baidu Cloud Disk");
+    // Log in to Baidu Netdisk
+    core.info("Logging in to Baidu Netdisk");
     await exec(exePath, ["login", `-bduss=${bduss}`, `-stoken=${stoken}`]);
 
     // Find files matching the target pattern
+    core.info(`Finding files to upload with pattern: ${targetPattern}`);
     const files = globSync(targetPattern, { withFileTypes: true }).filter(
       (dirent) => dirent.isFile(),
     );
@@ -151,5 +153,4 @@ async function downloadFile(url: string, destination: string) {
   const fileStream = fs.createWriteStream(destination);
   Readable.fromWeb(response.body).pipe(fileStream);
   await finished(fileStream);
-  core.info(`Download BaiduPCS-Go complete: ${destination}`);
 }

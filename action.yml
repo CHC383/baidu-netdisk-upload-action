@@ -8,16 +8,16 @@ runs:
 
 inputs:
   bduss:
-    description: BDUSS token for Baidu NetDisk authentication
+    description: BDUSS token for Baidu Netdisk authentication
     required: true
   stoken:
-    description: STOKEN for Baidu NetDisk authentication
+    description: STOKEN for Baidu Netdisk authentication
     required: true
   target:
     description: Local file or directory pattern to upload (supports glob syntax)
     required: true
   remote-dir:
-    description: Target directory path on Baidu NetDisk
+    description: Target directory path on Baidu Netdisk
     required: true
   upload-policy:
     description: BaiduPCS-Go upload policy - "skip" (default), "overwrite", "rsync"

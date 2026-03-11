@@ -32129,19 +32129,21 @@ async function run() {
         const zipPath = path$1.join(process.cwd(), assetName);
         info(`Downloading BaiduPCS-Go from: ${downloadUrl}`);
         await downloadFile(downloadUrl, zipPath);
+        info(`BaiduPCS-Go is downloaded to: ${zipPath}`);
         // Extract the archive
         const extractDirectory = path$1.join(process.cwd(), "baidupcs");
+        info(`Extracting BaiduPCS-Go archive to: ${extractDirectory}`);
         fs$1.mkdirSync(extractDirectory);
-        info("Extracting archive");
         const zipFile = new AdmZip(zipPath);
         zipFile.extractAllTo(extractDirectory, true);
         // Locate the executable
         const exePath = path$1.join(extractDirectory, path$1.basename(assetName, ".zip"), platform === "win32" ? "BaiduPCS-Go.exe" : "BaiduPCS-Go");
         fs$1.chmodSync(exePath, fs$1.constants.S_IRWXU);
-        // Log in to Baidu Cloud Disk
-        info("Logging in to Baidu Cloud Disk");
+        // Log in to Baidu Netdisk
+        info("Logging in to Baidu Netdisk");
         await exec(exePath, ["login", `-bduss=${bduss}`, `-stoken=${stoken}`]);
         // Find files matching the target pattern
+        info(`Finding files to upload with pattern: ${targetPattern}`);
         const files = globSync(targetPattern, { withFileTypes: true }).filter((dirent) => dirent.isFile());
         if (files.length === 0) {
             throw new Error(`No files matched pattern: ${targetPattern}`);
@@ -32226,7 +32228,6 @@ async function downloadFile(url, destination) {
     const fileStream = fs$1.createWriteStream(destination);
     Readable.fromWeb(response.body).pipe(fileStream);
     await finished(fileStream);
-    info(`Download BaiduPCS-Go complete: ${destination}`);
 }
 
 void run();
