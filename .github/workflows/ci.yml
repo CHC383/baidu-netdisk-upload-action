@@ -79,10 +79,11 @@ jobs:
         env:
           TEST_DIR: ./test_files
         run: |
+          DATE=$(date --iso-8601=seconds)
           mkdir -p $TEST_DIR
-          echo "Upload file 1" > $TEST_DIR/upload-1.txt
-          echo "Upload file 2" > $TEST_DIR/upload-2.txt
-          echo "Not upload file 1" > $TEST_DIR/not-upload-1.txt
+          echo "Upload file 1 $DATE" > $TEST_DIR/upload-1.txt
+          echo "Upload file 2 $DATE" > $TEST_DIR/upload-2.txt
+          echo "Not upload file 1 $DATE" > $TEST_DIR/not-upload-1.txt
 
       - name: Test Local Action
         id: test-action
@@ -99,11 +100,13 @@ jobs:
         env:
           BDUSS: ${{ secrets.BDUSS }}
           STOKEN: ${{ secrets.STOKEN }}
+          REMOTE_DIR: "/baidu-netdisk-upload-action-test/"
         run: |
           BAIDUPCS_GO_VERSION=$(grep -m 1 "const BAIDU_PCS_GO_VERSION = " ./dist/index.js | sed 's/.*BAIDU_PCS_GO_VERSION = "\(.*\)";/\1/')
           BAIDUPCS_GO_EXECUTABLE=./baidupcs/BaiduPCS-Go-v$BAIDUPCS_GO_VERSION-linux-amd64/BaiduPCS-Go
           DATE=$(TZ=Asia/Shanghai date +%F)
           $BAIDUPCS_GO_EXECUTABLE login -bduss="$BDUSS" -stoken="$STOKEN"
-          $BAIDUPCS_GO_EXECUTABLE search -path=/baidu-netdisk-upload-action-test/ upload-1.txt | grep -q "$DATE"
-          $BAIDUPCS_GO_EXECUTABLE search -path=/baidu-netdisk-upload-action-test/ upload-2.txt | grep -q "$DATE"
-          $BAIDUPCS_GO_EXECUTABLE search -path=/baidu-netdisk-upload-action-test/ not-upload-1.txt | grep -q "文件总数: 0"
+          LS_OUTPUT=$($BAIDUPCS_GO_EXECUTABLE ls $REMOTE_DIR)
+          grep --quiet "$DATE.*upload-1.txt" <<< "$LS_OUTPUT"
+          grep --quiet "$DATE.*upload-2.txt" <<< "$LS_OUTPUT"
+          grep --quiet --invert-match "not-upload-1.txt" <<< "$LS_OUTPUT"
