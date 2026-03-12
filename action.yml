@@ -2,6 +2,10 @@ name: Baidu Netdisk Upload
 description: Use BaiduPCS-Go to upload files to Baidu Netdisk
 author: Henry Cai <huacong.cai@gmail.com>
 
+branding:
+  icon: upload-cloud
+  color: blue
+
 runs:
   using: node24
   main: dist/index.js
