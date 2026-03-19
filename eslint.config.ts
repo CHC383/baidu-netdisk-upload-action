@@ -17,7 +17,7 @@ export default defineConfig(
             "eslint.config.ts",
             "lint-staged.config.ts",
             "prettier.config.ts",
-            "rollup.config.ts",
+            "tsdown.config.ts",
           ],
         },
         tsconfigRootDir: import.meta.dirname,
@@ -33,7 +33,6 @@ export default defineConfig(
   eslintjs.configs.recommended,
   tseConfigs.recommendedTypeChecked,
   tseConfigs.stylisticTypeChecked,
-  // @ts-expect-error https://github.com/typescript-eslint/typescript-eslint/issues/11543
   eslintPluginImportXConfigs.recommended,
   eslintPluginImportXConfigs.typescript,
   eslintPluginUnicorn.configs.recommended,
