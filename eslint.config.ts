@@ -20,6 +20,7 @@ export default defineConfig(
             "tsdown.config.ts",
           ],
         },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- TODO: typescript-eslint TS6 bug
         tsconfigRootDir: import.meta.dirname,
         parser: tsParser,
         ecmaVersion: "latest",
