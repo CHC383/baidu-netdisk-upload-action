@@ -18511,7 +18511,7 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 		};
 	};
 })))(), 1);
-const BAIDU_PCS_GO_VERSION = "4.0.0";
+const BAIDU_PCS_GO_VERSION = "4.0.1";
 async function run() {
 	try {
 		const bduss = getInput("bduss", { required: true });

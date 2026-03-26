@@ -9,7 +9,7 @@ import { exec } from "@actions/exec";
 import AdmZip from "adm-zip";
 
 // https://github.com/qjfoidnh/BaiduPCS-Go/releases
-const BAIDU_PCS_GO_VERSION = "4.0.0";
+const BAIDU_PCS_GO_VERSION = "4.0.1";
 
 export async function run(): Promise<void> {
   try {
