@@ -43,13 +43,9 @@ jobs:
         id: pnpm-install
         run: pnpm install --frozen-lockfile
 
-      - name: Format Check
-        id: format-check
-        run: pnpm format:check
-
-      - name: Lint Check
-        id: lint-check
-        run: pnpm lint
+      - name: Lint and format Check
+        id: lint-format-check
+        run: pnpm biome:check
 
       - name: dist Check
         id: dist-check

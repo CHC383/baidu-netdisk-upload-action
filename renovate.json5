@@ -6,6 +6,7 @@
     ":semanticCommitTypeAll(build)",
     ":dependencyDashboard",
     "workarounds:typesNodeVersioning",
+    "customManagers:biomeVersions",
   ],
   rangeStrategy: "bump",
   postUpdateOptions: ["pnpmDedupe"],
