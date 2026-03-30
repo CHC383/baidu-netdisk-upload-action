@@ -14,9 +14,9 @@
     "biome:check": "biome check",
     "biome:check-fix": "biome check --write",
     "check-dist": "scripts/check_dist.sh",
+    "install-lefthook": "lefthook install",
     "package": "tsdown",
-    "postinstall": "pnpm package",
-    "prepare": "husky"
+    "postinstall": "pnpm package"
   },
   "dependencies": {
     "@actions/core": "^3.0.0",
@@ -27,8 +27,7 @@
     "@biomejs/biome": "^2.4.10",
     "@types/adm-zip": "^0.5.8",
     "@types/node": "^24.12.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
+    "lefthook": "^2.1.4",
     "tsdown": "^0.21.7",
     "typescript": "^6.0.2"
   },

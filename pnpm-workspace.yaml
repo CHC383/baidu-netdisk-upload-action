@@ -1,3 +1,4 @@
-onlyBuiltDependencies:
-  - unrs-resolver
 dedupePeers: true
+onlyBuiltDependencies:
+  - lefthook
+  - unrs-resolver
