@@ -15,8 +15,7 @@
     "biome:check-fix": "biome check --write",
     "check-dist": "scripts/check_dist.sh",
     "install-lefthook": "lefthook install",
-    "package": "tsdown",
-    "postinstall": "pnpm package"
+    "package": "tsdown"
   },
   "dependencies": {
     "@actions/core": "^3.0.0",
