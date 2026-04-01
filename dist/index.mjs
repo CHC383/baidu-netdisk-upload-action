@@ -16535,7 +16535,7 @@ function info(message) {
 	process.stdout.write(message + os$2.EOL);
 }
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/util/constants.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/constants.js
 var require_constants = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = {
 		LOCHDR: 30,
@@ -16652,7 +16652,7 @@ var require_constants = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/util/errors.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/errors.js
 var require_errors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const errors = {
 		INVALID_LOC: "Invalid LOC header (bad signature)",
@@ -16699,7 +16699,7 @@ var require_errors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	for (const msg of Object.keys(errors)) exports[msg] = E(errors[msg]);
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/util/utils.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/utils.js
 var require_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const fsystem = __require("fs");
 	const pth$2 = __require("path");
@@ -16731,7 +16731,8 @@ var require_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 				try {
 					stat = self.fs.statSync(resolvedPath);
 				} catch (e) {
-					self.fs.mkdirSync(resolvedPath);
+					if (e.message && e.message.startsWith("ENOENT")) self.fs.mkdirSync(resolvedPath);
+					else throw e;
 				}
 				if (stat && stat.isFile()) throw Errors.FILE_IN_THE_WAY(`"${resolvedPath}"`);
 			});
@@ -16920,9 +16921,8 @@ var require_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		else return typeof input === "string" ? encoder(input) : Buffer.alloc(0);
 	};
 	Utils.readBigUInt64LE = function(buffer, index) {
-		var slice = Buffer.from(buffer.slice(index, index + 8));
-		slice.swap64();
-		return parseInt(`0x${slice.toString("hex")}`);
+		const lo = buffer.readUInt32LE(index);
+		return buffer.readUInt32LE(index + 4) * 4294967296 + lo;
 	};
 	Utils.fromDOS2Date = function(val) {
 		return new Date((val >> 25 & 127) + 1980, Math.max((val >> 21 & 15) - 1, 0), Math.max(val >> 16 & 31, 1), val >> 11 & 31, val >> 5 & 63, (val & 31) << 1);
@@ -16940,7 +16940,7 @@ var require_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	Utils.crcTable = crcTable;
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/util/fattr.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/fattr.js
 var require_fattr = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const pth$1 = __require("path");
 	module.exports = function(path, { fs }) {
@@ -17003,7 +17003,7 @@ var require_fattr = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/util/decoder.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/decoder.js
 var require_decoder = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = {
 		efs: true,
@@ -17012,7 +17012,7 @@ var require_decoder = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/util/index.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/index.js
 var require_util = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = require_utils();
 	module.exports.Constants = require_constants();
@@ -17021,7 +17021,7 @@ var require_util = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports.decoder = require_decoder();
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/headers/entryHeader.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/headers/entryHeader.js
 var require_entryHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var Utils = require_util(), Constants = Utils.Constants;
 	module.exports = function() {
@@ -17080,6 +17080,7 @@ var require_entryHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 				return Utils.fromDOS2Date(this.timeval);
 			},
 			set time(val) {
+				val = new Date(val);
 				this.timeval = Utils.fromDate2DOS(val);
 			},
 			get timeval() {
@@ -17177,6 +17178,7 @@ var require_entryHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 				if (data.readUInt32LE(0) !== Constants.LOCSIG) throw Utils.Errors.INVALID_LOC();
 				_localHeader.version = data.readUInt16LE(Constants.LOCVER);
 				_localHeader.flags = data.readUInt16LE(Constants.LOCFLG);
+				_localHeader.flags_desc = (_localHeader.flags & Constants.FLG_DESC) > 0;
 				_localHeader.method = data.readUInt16LE(Constants.LOCHOW);
 				_localHeader.time = data.readUInt32LE(Constants.LOCTIM);
 				_localHeader.crc = data.readUInt32LE(Constants.LOCCRC);
@@ -17270,7 +17272,7 @@ var require_entryHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/headers/mainHeader.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/headers/mainHeader.js
 var require_mainHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var Utils = require_util(), Constants = Utils.Constants;
 	module.exports = function() {
@@ -17358,13 +17360,13 @@ var require_mainHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/headers/index.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/headers/index.js
 var require_headers = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.EntryHeader = require_entryHeader();
 	exports.MainHeader = require_mainHeader();
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/methods/deflater.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/deflater.js
 var require_deflater = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = function(inbuf) {
 		var zlib = __require("zlib");
@@ -17395,7 +17397,7 @@ var require_deflater = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/methods/inflater.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/inflater.js
 var require_inflater = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const version = +(process.versions ? process.versions.node : "").split(".")[0] || 0;
 	module.exports = function(inbuf, expectedLength) {
@@ -17427,7 +17429,7 @@ var require_inflater = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/methods/zipcrypto.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/zipcrypto.js
 var require_zipcrypto = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { randomFillSync } = __require("crypto");
 	const Errors = require_errors();
@@ -17526,14 +17528,14 @@ var require_zipcrypto = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/methods/index.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/index.js
 var require_methods = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Deflater = require_deflater();
 	exports.Inflater = require_inflater();
 	exports.ZipCrypto = require_zipcrypto();
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/zipEntry.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/zipEntry.js
 var require_zipEntry = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var Utils = require_util(), Headers = require_headers(), Constants = Utils.Constants, Methods = require_methods();
 	module.exports = function(options, input) {
@@ -17547,7 +17549,7 @@ var require_zipEntry = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			return input.slice(_centralHeader.realDataOffset, _centralHeader.realDataOffset + _centralHeader.compressedSize);
 		}
 		function crc32OK(data) {
-			if (!_centralHeader.flags_desc) {
+			if (!_centralHeader.flags_desc && !_centralHeader.localHeader.flags_desc) {
 				if (Utils.crc32(data) !== _centralHeader.localHeader.crc) return false;
 			} else {
 				const descriptor = {};
@@ -17647,7 +17649,7 @@ var require_zipEntry = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			else return Buffer.alloc(0);
 		}
 		function readUInt64LE(buffer, offset) {
-			return (buffer.readUInt32LE(offset + 4) << 4) + buffer.readUInt32LE(offset);
+			return Utils.readBigUInt64LE(buffer, offset);
 		}
 		function parseExtra(data) {
 			try {
@@ -17807,7 +17809,7 @@ var require_zipEntry = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/zipFile.js
+//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/zipFile.js
 var require_zipFile = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const ZipEntry = require_zipEntry();
 	const Headers = require_headers();
@@ -18107,7 +18109,7 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 		}
 		function fixPath(zipPath) {
 			const { join, normalize, sep } = pth.posix;
-			return join(".", normalize(sep + zipPath.split("\\").join(sep) + sep));
+			return join(pth.isAbsolute(zipPath) ? "/" : ".", normalize(sep + zipPath.split("\\").join(sep) + sep));
 		}
 		function filenameFilter(filterfn) {
 			if (filterfn instanceof RegExp) return (function(rx) {
