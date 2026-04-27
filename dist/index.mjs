@@ -2127,9 +2127,26 @@ var require_timers = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	* used as a drop-in replacement for the native functions.
 	*/
 	module.exports = {
+		/**
+		* The setTimeout() method sets a timer which executes a function once the
+		* timer expires.
+		* @param {Function} callback A function to be executed after the timer
+		* expires.
+		* @param {number} delay The time, in milliseconds that the timer should
+		* wait before the specified function or code is executed.
+		* @param {*} [arg] An optional argument to be passed to the callback function
+		* when the timer expires.
+		* @returns {NodeJS.Timeout|FastTimer}
+		*/
 		setTimeout(callback, delay, arg) {
 			return delay <= RESOLUTION_MS ? setTimeout(callback, delay, arg) : new FastTimer(callback, delay, arg);
 		},
+		/**
+		* The clearTimeout method cancels an instantiated Timer previously created
+		* by calling setTimeout.
+		*
+		* @param {NodeJS.Timeout|FastTimer} timeout
+		*/
 		clearTimeout(timeout) {
 			if (timeout[kFastTimer])
  /**
@@ -2138,26 +2155,66 @@ var require_timers = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			timeout.clear();
 			else clearTimeout(timeout);
 		},
+		/**
+		* The setFastTimeout() method sets a fastTimer which executes a function once
+		* the timer expires.
+		* @param {Function} callback A function to be executed after the timer
+		* expires.
+		* @param {number} delay The time, in milliseconds that the timer should
+		* wait before the specified function or code is executed.
+		* @param {*} [arg] An optional argument to be passed to the callback function
+		* when the timer expires.
+		* @returns {FastTimer}
+		*/
 		setFastTimeout(callback, delay, arg) {
 			return new FastTimer(callback, delay, arg);
 		},
+		/**
+		* The clearTimeout method cancels an instantiated FastTimer previously
+		* created by calling setFastTimeout.
+		*
+		* @param {FastTimer} timeout
+		*/
 		clearFastTimeout(timeout) {
 			timeout.clear();
 		},
+		/**
+		* The now method returns the value of the internal fast timer clock.
+		*
+		* @returns {number}
+		*/
 		now() {
 			return fastNow;
 		},
+		/**
+		* Trigger the onTick function to process the fastTimers array.
+		* Exported for testing purposes only.
+		* Marking as deprecated to discourage any use outside of testing.
+		* @deprecated
+		* @param {number} [delay=0] The delay in milliseconds to add to the now value.
+		*/
 		tick(delay = 0) {
 			fastNow += delay - RESOLUTION_MS + 1;
 			onTick();
 			onTick();
 		},
+		/**
+		* Reset FastTimers.
+		* Exported for testing purposes only.
+		* Marking as deprecated to discourage any use outside of testing.
+		* @deprecated
+		*/
 		reset() {
 			fastNow = 0;
 			fastTimers.length = 0;
 			clearTimeout(fastNowTimeout);
 			fastNowTimeout = null;
 		},
+		/**
+		* Exporting for testing purposes only.
+		* Marking as deprecated to discourage any use outside of testing.
+		* @deprecated
+		*/
 		kFastTimer
 	};
 }));
@@ -3072,6 +3129,7 @@ var require_data_url = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		const mimeType = {
 			type: typeLowercase,
 			subtype: subtypeLowercase,
+			/** @type {Map<string, string>} */
 			parameters: /* @__PURE__ */ new Map(),
 			essence: `${typeLowercase}/${subtypeLowercase}`
 		};
@@ -17901,10 +17959,18 @@ var require_zipFile = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			if (entryList.length > 1 && !noSort) entryList.sort((a, b) => a.entryName.toLowerCase().localeCompare(b.entryName.toLowerCase()));
 		}
 		return {
+			/**
+			* Returns an array of ZipEntry objects existent in the current opened archive
+			* @return Array
+			*/
 			get entries() {
 				if (!loadedEntries) readEntries();
 				return entryList.filter((e) => !temporary.has(e));
 			},
+			/**
+			* Archive comment
+			* @return {String}
+			*/
 			get comment() {
 				return decoder.decode(_comment);
 			},
@@ -17919,21 +17985,45 @@ var require_zipFile = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			forEach: function(callback) {
 				this.entries.forEach(callback);
 			},
+			/**
+			* Returns a reference to the entry with the given name or null if entry is inexistent
+			*
+			* @param entryName
+			* @return ZipEntry
+			*/
 			getEntry: function(entryName) {
 				if (!loadedEntries) readEntries();
 				return entryTable[entryName] || null;
 			},
+			/**
+			* Adds the given entry to the entry list
+			*
+			* @param entry
+			*/
 			setEntry: function(entry) {
 				if (!loadedEntries) readEntries();
 				entryList.push(entry);
 				entryTable[entry.entryName] = entry;
 				mainHeader.totalEntries = entryList.length;
 			},
+			/**
+			* Removes the file with the given name from the entry list.
+			*
+			* If the entry is a directory, then all nested files and directories will be removed
+			* @param entryName
+			* @returns {void}
+			*/
 			deleteFile: function(entryName, withsubfolders = true) {
 				if (!loadedEntries) readEntries();
 				const entry = entryTable[entryName];
 				this.getEntryChildren(entry, withsubfolders).map((child) => child.entryName).forEach(this.deleteEntry);
 			},
+			/**
+			* Removes the entry with the given name from the entry list.
+			*
+			* @param {string} entryName
+			* @returns {void}
+			*/
 			deleteEntry: function(entryName) {
 				if (!loadedEntries) readEntries();
 				const entry = entryTable[entryName];
@@ -17944,6 +18034,12 @@ var require_zipFile = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 					mainHeader.totalEntries = entryList.length;
 				}
 			},
+			/**
+			*  Iterates and returns all nested files and directories of the given entry
+			*
+			* @param entry
+			* @return Array
+			*/
 			getEntryChildren: function(entry, subfolders = true) {
 				if (!loadedEntries) readEntries();
 				if (typeof entry === "object") if (entry.isDirectory && subfolders) {
@@ -17954,6 +18050,12 @@ var require_zipFile = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 				} else return [entry];
 				return [];
 			},
+			/**
+			*  How many child elements entry has
+			*
+			* @param {ZipEntry} entry
+			* @return {integer}
+			*/
 			getChildCount: function(entry) {
 				if (entry && entry.isDirectory) {
 					const list = this.getEntryChildren(entry);
@@ -17961,6 +18063,11 @@ var require_zipFile = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 				}
 				return 0;
 			},
+			/**
+			* Returns the zip file
+			*
+			* @return Buffer
+			*/
 			compressToBuffer: function() {
 				if (!loadedEntries) readEntries();
 				sortEntries();
@@ -18135,19 +18242,44 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 			return pth.relative(local, entry) + lastChar;
 		};
 		return {
+			/**
+			* Extracts the given entry from the archive and returns the content as a Buffer object
+			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
+			* @param {Buffer|string} [pass] - password
+			* @return Buffer or Null in case of error
+			*/
 			readFile: function(entry, pass) {
 				var item = getEntry(entry);
 				return item && item.getData(pass) || null;
 			},
+			/**
+			* Returns how many child elements has on entry (directories) on files it is always 0
+			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
+			* @returns {integer}
+			*/
 			childCount: function(entry) {
 				const item = getEntry(entry);
 				if (item) return _zip.getChildCount(item);
 			},
+			/**
+			* Asynchronous readFile
+			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
+			* @param {callback} callback
+			*
+			* @return Buffer or Null in case of error
+			*/
 			readFileAsync: function(entry, callback) {
 				var item = getEntry(entry);
 				if (item) item.getDataAsync(callback);
 				else callback(null, "getEntry failed for:" + entry);
 			},
+			/**
+			* Extracts the given entry from the archive and returns the content as plain text in the given encoding
+			* @param {ZipEntry|string} entry - ZipEntry object or String with the full path of the entry
+			* @param {string} encoding - Optional. If no encoding is specified utf8 is used
+			*
+			* @return String
+			*/
 			readAsText: function(entry, encoding) {
 				var item = getEntry(entry);
 				if (item) {
@@ -18156,6 +18288,14 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 				}
 				return "";
 			},
+			/**
+			* Asynchronous readAsText
+			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
+			* @param {callback} callback
+			* @param {string} [encoding] - Optional. If no encoding is specified utf8 is used
+			*
+			* @return String
+			*/
 			readAsTextAsync: function(entry, callback, encoding) {
 				var item = getEntry(entry);
 				if (item) item.getDataAsync(function(data, err) {
@@ -18168,33 +18308,82 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 				});
 				else callback("");
 			},
+			/**
+			* Remove the entry from the file or the entry and all it's nested directories and files if the given entry is a directory
+			*
+			* @param {ZipEntry|string} entry
+			* @returns {void}
+			*/
 			deleteFile: function(entry, withsubfolders = true) {
 				var item = getEntry(entry);
 				if (item) _zip.deleteFile(item.entryName, withsubfolders);
 			},
+			/**
+			* Remove the entry from the file or directory without affecting any nested entries
+			*
+			* @param {ZipEntry|string} entry
+			* @returns {void}
+			*/
 			deleteEntry: function(entry) {
 				var item = getEntry(entry);
 				if (item) _zip.deleteEntry(item.entryName);
 			},
+			/**
+			* Adds a comment to the zip. The zip must be rewritten after adding the comment.
+			*
+			* @param {string} comment
+			*/
 			addZipComment: function(comment) {
 				_zip.comment = comment;
 			},
+			/**
+			* Returns the zip comment
+			*
+			* @return String
+			*/
 			getZipComment: function() {
 				return _zip.comment || "";
 			},
+			/**
+			* Adds a comment to a specified zipEntry. The zip must be rewritten after adding the comment
+			* The comment cannot exceed 65535 characters in length
+			*
+			* @param {ZipEntry} entry
+			* @param {string} comment
+			*/
 			addZipEntryComment: function(entry, comment) {
 				var item = getEntry(entry);
 				if (item) item.comment = comment;
 			},
+			/**
+			* Returns the comment of the specified entry
+			*
+			* @param {ZipEntry} entry
+			* @return String
+			*/
 			getZipEntryComment: function(entry) {
 				var item = getEntry(entry);
 				if (item) return item.comment || "";
 				return "";
 			},
+			/**
+			* Updates the content of an existing entry inside the archive. The zip must be rewritten after updating the content
+			*
+			* @param {ZipEntry} entry
+			* @param {Buffer} content
+			*/
 			updateFile: function(entry, content) {
 				var item = getEntry(entry);
 				if (item) item.setData(content);
 			},
+			/**
+			* Adds a file from the disk to the archive
+			*
+			* @param {string} localPath File to add to zip
+			* @param {string} [zipPath] Optional path inside the zip
+			* @param {string} [zipName] Optional name for the file
+			* @param {string} [comment] Optional file comment
+			*/
 			addLocalFile: function(localPath, zipPath, zipName, comment) {
 				if (filetools.fs.existsSync(localPath)) {
 					zipPath = zipPath ? fixPath(zipPath) : "";
@@ -18206,6 +18395,23 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					this.addFile(zipPath, data, comment, _attr);
 				} else throw Utils.Errors.FILE_NOT_FOUND(localPath);
 			},
+			/**
+			* Callback for showing if everything was done.
+			*
+			* @callback doneCallback
+			* @param {Error} err - Error object
+			* @param {boolean} done - was request fully completed
+			*/
+			/**
+			* Adds a file from the disk to the archive
+			*
+			* @param {(object|string)} options - options object, if it is string it us used as localPath.
+			* @param {string} options.localPath - Local path to the file.
+			* @param {string} [options.comment] - Optional file comment.
+			* @param {string} [options.zipPath] - Optional path inside the zip
+			* @param {string} [options.zipName] - Optional name for the file
+			* @param {doneCallback} callback - The callback that handles the response.
+			*/
 			addLocalFileAsync: function(options, callback) {
 				options = typeof options === "object" ? options : { localPath: options };
 				const localPath = pth.resolve(options.localPath);
@@ -18229,6 +18435,13 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					}
 				});
 			},
+			/**
+			* Adds a local directory and all its nested files and directories to the archive
+			*
+			* @param {string} localPath - local path to the folder
+			* @param {string} [zipPath] - optional path inside zip
+			* @param {(RegExp|function)} [filter] - optional RegExp or Function if files match will be included.
+			*/
 			addLocalFolder: function(localPath, zipPath, filter) {
 				filter = filenameFilter(filter);
 				zipPath = zipPath ? fixPath(zipPath) : "";
@@ -18242,6 +18455,14 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					}
 				} else throw Utils.Errors.FILE_NOT_FOUND(localPath);
 			},
+			/**
+			* Asynchronous addLocalFolder
+			* @param {string} localPath
+			* @param {callback} callback
+			* @param {string} [zipPath] optional path inside zip
+			* @param {RegExp|function} [filter] optional RegExp or Function if files match will
+			*               be included.
+			*/
 			addLocalFolderAsync: function(localPath, callback, zipPath, filter) {
 				filter = filenameFilter(filter);
 				zipPath = zipPath ? fixPath(zipPath) : "";
@@ -18282,6 +18503,17 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					}
 				});
 			},
+			/**
+			* Adds a local directory and all its nested files and directories to the archive
+			*
+			* @param {object | string} options - options object, if it is string it us used as localPath.
+			* @param {string} options.localPath - Local path to the folder.
+			* @param {string} [options.zipPath] - optional path inside zip.
+			* @param {RegExp|function} [options.filter] - optional RegExp or Function if files match will be included.
+			* @param {function|string} [options.namefix] - optional function to help fix filename
+			* @param {doneCallback} callback - The callback that handles the response.
+			*
+			*/
 			addLocalFolderAsync2: function(options, callback) {
 				const self = this;
 				options = typeof options === "object" ? options : { localPath: options };
@@ -18320,6 +18552,15 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					});
 				});
 			},
+			/**
+			* Adds a local directory and all its nested files and directories to the archive
+			*
+			* @param {string} localPath - path where files will be extracted
+			* @param {object} props - optional properties
+			* @param {string} [props.zipPath] - optional path inside zip
+			* @param {RegExp|function} [props.filter] - optional RegExp or Function if files match will be included.
+			* @param {function|string} [props.namefix] - optional function to help fix filename
+			*/
 			addLocalFolderPromise: function(localPath, props) {
 				return new Promise((resolve, reject) => {
 					this.addLocalFolderAsync2(Object.assign({ localPath }, props), (err, done) => {
@@ -18328,6 +18569,16 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					});
 				});
 			},
+			/**
+			* Allows you to create a entry (file or directory) in the zip file.
+			* If you want to create a directory the entryName must end in / and a null buffer should be provided.
+			* Comment and attributes are optional
+			*
+			* @param {string} entryName
+			* @param {Buffer | string} content - file content as buffer or utf8 coded string
+			* @param {string} [comment] - file comment
+			* @param {number | object} [attr] - number as unix file permissions, object as filesystem Stats object
+			*/
 			addFile: function(entryName, content, comment, attr) {
 				entryName = zipnamefix(entryName);
 				let entry = getEntry(entryName);
@@ -18350,10 +18601,22 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 				if (!update) _zip.setEntry(entry);
 				return entry;
 			},
+			/**
+			* Returns an array of ZipEntry objects representing the files and folders inside the archive
+			*
+			* @param {string} [password]
+			* @returns Array
+			*/
 			getEntries: function(password) {
 				_zip.password = password;
 				return _zip ? _zip.entries : [];
 			},
+			/**
+			* Returns a ZipEntry object representing the file or folder specified by ``name``.
+			*
+			* @param {string} name
+			* @return ZipEntry
+			*/
 			getEntry: function(name) {
 				return getEntry(name);
 			},
@@ -18363,6 +18626,19 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 			forEach: function(callback) {
 				return _zip.forEach(callback);
 			},
+			/**
+			* Extracts the given entry to the given targetPath
+			* If the entry is a directory inside the archive, the entire directory and it's subdirectories will be extracted
+			*
+			* @param {string|ZipEntry} entry - ZipEntry object or String with the full path of the entry
+			* @param {string} targetPath - Target folder where to write the file
+			* @param {boolean} [maintainEntryPath=true] - If maintainEntryPath is true and the entry is inside a folder, the entry folder will be created in targetPath as well. Default is TRUE
+			* @param {boolean} [overwrite=false] - If the file already exists at the target path, the file will be overwriten if this is true.
+			* @param {boolean} [keepOriginalPermission=false] - The file will be set as the permission from the entry if this is true.
+			* @param {string} [outFileName] - String If set will override the filename of the extracted file (Only works if the entry is a file)
+			*
+			* @return Boolean
+			*/
 			extractEntryTo: function(entry, targetPath, maintainEntryPath, overwrite, keepOriginalPermission, outFileName) {
 				overwrite = get_Bool(false, overwrite);
 				keepOriginalPermission = get_Bool(false, keepOriginalPermission);
@@ -18391,6 +18667,10 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 				filetools.writeFileTo(target, content, overwrite, fileAttr);
 				return true;
 			},
+			/**
+			* Test the archive
+			* @param {string} [pass]
+			*/
 			test: function(pass) {
 				if (!_zip) return false;
 				for (var entry in _zip.entries) try {
@@ -18401,6 +18681,16 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 				}
 				return true;
 			},
+			/**
+			* Extracts the entire archive to the given location
+			*
+			* @param {string} targetPath Target location
+			* @param {boolean} [overwrite=false] If the file already exists at the target path, the file will be overwriten if this is true.
+			*                  Default is FALSE
+			* @param {boolean} [keepOriginalPermission=false] The file will be set as the permission from the entry if this is true.
+			*                  Default is FALSE
+			* @param {string|Buffer} [pass] password
+			*/
 			extractAllTo: function(targetPath, overwrite, keepOriginalPermission, pass) {
 				keepOriginalPermission = get_Bool(false, keepOriginalPermission);
 				pass = get_Str(keepOriginalPermission, pass);
@@ -18423,6 +18713,16 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					}
 				});
 			},
+			/**
+			* Asynchronous extractAllTo
+			*
+			* @param {string} targetPath Target location
+			* @param {boolean} [overwrite=false] If the file already exists at the target path, the file will be overwriten if this is true.
+			*                  Default is FALSE
+			* @param {boolean} [keepOriginalPermission=false] The file will be set as the permission from the entry if this is true.
+			*                  Default is FALSE
+			* @param {function} callback The callback will be executed when all entries are extracted successfully or any error is thrown.
+			*/
 			extractAllToAsync: function(targetPath, overwrite, keepOriginalPermission, callback) {
 				callback = get_Fun(overwrite, keepOriginalPermission, callback);
 				keepOriginalPermission = get_Bool(false, keepOriginalPermission);
@@ -18481,6 +18781,12 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					};
 				}, callback)();
 			},
+			/**
+			* Writes the newly created zip file to disk at the specified location or if a zip was opened and no ``targetFileName`` is provided, it will overwrite the opened zip
+			*
+			* @param {string} targetFileName
+			* @param {function} callback
+			*/
 			writeZip: function(targetFileName, callback) {
 				if (arguments.length === 1) {
 					if (typeof targetFileName === "function") {
@@ -18496,6 +18802,15 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					if (typeof callback === "function") callback(!ok ? /* @__PURE__ */ new Error("failed") : null, "");
 				}
 			},
+			/**
+			*
+			* @param {string} targetFileName
+			* @param {object} [props]
+			* @param {boolean} [props.overwrite=true] If the file already exists at the target path, the file will be overwriten if this is true.
+			* @param {boolean} [props.perm] The file will be set as the permission from the entry if this is true.
+			
+			* @returns {Promise<void>}
+			*/
 			writeZipPromise: function(targetFileName, props) {
 				const { overwrite, perm } = Object.assign({ overwrite: true }, props);
 				return new Promise((resolve, reject) => {
@@ -18507,11 +18822,23 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 					}, reject);
 				});
 			},
+			/**
+			* @returns {Promise<Buffer>} A promise to the Buffer.
+			*/
 			toBufferPromise: function() {
 				return new Promise((resolve, reject) => {
 					_zip.toAsyncBuffer(resolve, reject);
 				});
 			},
+			/**
+			* Returns the content of the entire zip file as a Buffer object
+			*
+			* @prop {function} [onSuccess]
+			* @prop {function} [onFail]
+			* @prop {function} [onItemStart]
+			* @prop {function} [onItemEnd]
+			* @returns {Buffer}
+			*/
 			toBuffer: function(onSuccess, onFail, onItemStart, onItemEnd) {
 				if (typeof onSuccess === "function") {
 					_zip.toAsyncBuffer(onSuccess, onFail, onItemStart, onItemEnd);
