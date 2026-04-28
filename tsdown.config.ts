@@ -5,7 +5,7 @@ export default defineConfig({
   format: ["esm"],
   sourcemap: true,
   deps: {
-    alwaysBundle: ["@actions/core", "@actions/exec", "adm-zip"],
+    alwaysBundle: [/(.*)/],
     onlyBundle: false,
   },
 });
