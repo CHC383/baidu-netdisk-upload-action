@@ -25,7 +25,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
     "@types/adm-zip": "^0.5.8",
-    "@types/node": "^24.12.2",
+    "@types/node": "^24.12.3",
     "lefthook": "^2.1.6",
     "tsdown": "^0.22.0",
     "typescript": "^6.0.3"
