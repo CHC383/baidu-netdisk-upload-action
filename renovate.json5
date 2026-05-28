@@ -24,5 +24,10 @@
       matchDepTypes: ["engines"],
       rangeStrategy: "auto",
     },
+    {
+      description: "Align with pnpm's default minimum release age",
+      matchDatasources: ["npm"],
+      minimumReleaseAge: "1 day",
+    },
   ],
 }
