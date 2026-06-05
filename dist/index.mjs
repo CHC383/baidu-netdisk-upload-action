@@ -18911,7 +18911,7 @@ async function run() {
 	try {
 		const bduss = getInput("bduss", { required: true });
 		const stoken = getInput("stoken", { required: true });
-		const targetPattern = getInput("target", { required: true });
+		const targetPatterns = getInput("target", { required: true });
 		const remoteDirectory = getInput("remote-dir", { required: true });
 		const uploadPolicy = getInput("upload-policy") || "skip";
 		const platform = os.platform();
@@ -18934,9 +18934,10 @@ async function run() {
 			`-bduss=${bduss}`,
 			`-stoken=${stoken}`
 		]);
-		info(`Finding files to upload with pattern: ${targetPattern}`);
-		const files = globSync(targetPattern, { withFileTypes: true }).filter((dirent) => dirent.isFile());
-		if (files.length === 0) throw new Error(`No files matched pattern: ${targetPattern}`);
+		const patterns = targetPatterns.split(";").map((p) => p.trim());
+		info(`Finding files to upload with pattern: ${patterns}`);
+		const files = globSync(patterns, { withFileTypes: true }).filter((dirent) => dirent.isFile());
+		if (files.length === 0) throw new Error(`No files matched pattern: ${patterns}`);
 		const filePaths = files.map((dirent) => path.join(dirent.parentPath, dirent.name));
 		info(`Uploading files: ${filePaths.join(" ")}`);
 		await exec(exePath, [
