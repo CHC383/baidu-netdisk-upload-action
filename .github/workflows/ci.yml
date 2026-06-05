@@ -86,6 +86,8 @@ jobs:
           echo "Upload file 1 $DATE" > $TEST_DIR/upload-1.txt
           echo "Upload file 2 $DATE" > $TEST_DIR/upload-2.txt
           echo "Not upload file 1 $DATE" > $TEST_DIR/not-upload-1.txt
+          mkdir -p $TEST_DIR/subdir
+          echo "Upload file 3 $DATE" > $TEST_DIR/subdir/upload-3.txt
 
       - name: Test Local Action
         id: test-action
@@ -93,7 +95,7 @@ jobs:
         with:
           bduss: ${{ secrets.BDUSS }}
           stoken: ${{ secrets.STOKEN }}
-          target: "./test_files/upload*"
+          target: "./test_files/upload*;./test_files/subdir/upload-3.txt"
           remote-dir: "/baidu-netdisk-upload-action-test/"
           upload-policy: "overwrite"
 
@@ -106,4 +108,5 @@ jobs:
           LS_OUTPUT=$($BAIDUPCS_GO_EXECUTABLE ls /baidu-netdisk-upload-action-test/)
           grep --quiet "$DATE.*upload-1.txt" <<< "$LS_OUTPUT"
           grep --quiet "$DATE.*upload-2.txt" <<< "$LS_OUTPUT"
+          grep --quiet "$DATE.*upload-3.txt" <<< "$LS_OUTPUT"
           grep --quiet --invert-match "not-upload-1.txt" <<< "$LS_OUTPUT"

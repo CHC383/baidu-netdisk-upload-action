@@ -16,7 +16,7 @@ export async function run(): Promise<void> {
     // Inputs from workflow
     const bduss = core.getInput("bduss", { required: true });
     const stoken = core.getInput("stoken", { required: true });
-    const targetPattern = core.getInput("target", { required: true });
+    const targetPatterns = core.getInput("target", { required: true });
     const remoteDirectory = core.getInput("remote-dir", { required: true });
     const uploadPolicy = core.getInput("upload-policy") || "skip";
 
@@ -56,13 +56,14 @@ export async function run(): Promise<void> {
     core.info("Logging in to Baidu Netdisk");
     await exec(exePath, ["login", `-bduss=${bduss}`, `-stoken=${stoken}`]);
 
-    // Find files matching the target pattern
-    core.info(`Finding files to upload with pattern: ${targetPattern}`);
-    const files = globSync(targetPattern, { withFileTypes: true }).filter(
-      (dirent) => dirent.isFile(),
+    // Find files matching the target patterns
+    const patterns = targetPatterns.split(";").map((p) => p.trim());
+    core.info(`Finding files to upload with pattern: ${patterns}`);
+    const files = globSync(patterns, { withFileTypes: true }).filter((dirent) =>
+      dirent.isFile(),
     );
     if (files.length === 0) {
-      throw new Error(`No files matched pattern: ${targetPattern}`);
+      throw new Error(`No files matched pattern: ${patterns}`);
     }
 
     // Upload files
