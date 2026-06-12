@@ -2,16 +2,20 @@ import { createRequire } from "node:module";
 import fs, { globSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Readable } from "node:stream";
-import { finished } from "node:stream/promises";
 import * as os$2 from "os";
 import os$1, { EOL } from "os";
+import * as crypto from "crypto";
 import * as fs$1 from "fs";
 import { constants, promises } from "fs";
 import * as path$1 from "path";
+import * as http from "http";
+import * as https from "https";
 import * as events from "events";
+import { ok } from "assert";
+import * as util from "util";
 import * as child from "child_process";
 import { setTimeout as setTimeout$1 } from "timers";
+import * as stream from "stream";
 //#region \0rolldown/runtime.js
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -135,20 +139,96 @@ function escapeProperty(s) {
 	return toCommandValue(s).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A").replace(/:/g, "%3A").replace(/,/g, "%2C");
 }
 //#endregion
+//#region node_modules/.pnpm/@actions+http-client@4.0.1/node_modules/@actions/http-client/lib/proxy.js
+function getProxyUrl(reqUrl) {
+	const usingSsl = reqUrl.protocol === "https:";
+	if (checkBypass(reqUrl)) return;
+	const proxyVar = (() => {
+		if (usingSsl) return process.env["https_proxy"] || process.env["HTTPS_PROXY"];
+		else return process.env["http_proxy"] || process.env["HTTP_PROXY"];
+	})();
+	if (proxyVar) try {
+		return new DecodedURL(proxyVar);
+	} catch (_a) {
+		if (!proxyVar.startsWith("http://") && !proxyVar.startsWith("https://")) return new DecodedURL(`http://${proxyVar}`);
+	}
+	else return;
+}
+function checkBypass(reqUrl) {
+	if (!reqUrl.hostname) return false;
+	const reqHost = reqUrl.hostname;
+	if (isLoopbackAddress(reqHost)) return true;
+	const noProxy = process.env["no_proxy"] || process.env["NO_PROXY"] || "";
+	if (!noProxy) return false;
+	let reqPort;
+	if (reqUrl.port) reqPort = Number(reqUrl.port);
+	else if (reqUrl.protocol === "http:") reqPort = 80;
+	else if (reqUrl.protocol === "https:") reqPort = 443;
+	const upperReqHosts = [reqUrl.hostname.toUpperCase()];
+	if (typeof reqPort === "number") upperReqHosts.push(`${upperReqHosts[0]}:${reqPort}`);
+	for (const upperNoProxyItem of noProxy.split(",").map((x) => x.trim().toUpperCase()).filter((x) => x)) if (upperNoProxyItem === "*" || upperReqHosts.some((x) => x === upperNoProxyItem || x.endsWith(`.${upperNoProxyItem}`) || upperNoProxyItem.startsWith(".") && x.endsWith(`${upperNoProxyItem}`))) return true;
+	return false;
+}
+function isLoopbackAddress(host) {
+	const hostLower = host.toLowerCase();
+	return hostLower === "localhost" || hostLower.startsWith("127.") || hostLower.startsWith("[::1]") || hostLower.startsWith("[0:0:0:0:0:0:0:1]");
+}
+var DecodedURL = class extends URL {
+	constructor(url, base) {
+		super(url, base);
+		this._decodedUsername = decodeURIComponent(super.username);
+		this._decodedPassword = decodeURIComponent(super.password);
+	}
+	get username() {
+		return this._decodedUsername;
+	}
+	get password() {
+		return this._decodedPassword;
+	}
+};
+//#endregion
 //#region node_modules/.pnpm/tunnel@0.0.6/node_modules/tunnel/lib/tunnel.js
 var require_tunnel$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	__require("net");
-	__require("tls");
-	var http$1 = __require("http");
-	__require("https");
+	var tls = __require("tls");
+	var http$2 = __require("http");
+	var https$1 = __require("https");
 	var events$1 = __require("events");
 	__require("assert");
-	var util$2 = __require("util");
+	var util$3 = __require("util");
+	exports.httpOverHttp = httpOverHttp;
+	exports.httpsOverHttp = httpsOverHttp;
+	exports.httpOverHttps = httpOverHttps;
+	exports.httpsOverHttps = httpsOverHttps;
+	function httpOverHttp(options) {
+		var agent = new TunnelingAgent(options);
+		agent.request = http$2.request;
+		return agent;
+	}
+	function httpsOverHttp(options) {
+		var agent = new TunnelingAgent(options);
+		agent.request = http$2.request;
+		agent.createSocket = createSecureSocket;
+		agent.defaultPort = 443;
+		return agent;
+	}
+	function httpOverHttps(options) {
+		var agent = new TunnelingAgent(options);
+		agent.request = https$1.request;
+		return agent;
+	}
+	function httpsOverHttps(options) {
+		var agent = new TunnelingAgent(options);
+		agent.request = https$1.request;
+		agent.createSocket = createSecureSocket;
+		agent.defaultPort = 443;
+		return agent;
+	}
 	function TunnelingAgent(options) {
 		var self = this;
 		self.options = options || {};
 		self.proxyOptions = self.options.proxy || {};
-		self.maxSockets = self.options.maxSockets || http$1.Agent.defaultMaxSockets;
+		self.maxSockets = self.options.maxSockets || http$2.Agent.defaultMaxSockets;
 		self.requests = [];
 		self.sockets = [];
 		self.on("free", function onFree(socket, host, port, localAddress) {
@@ -165,7 +245,7 @@ var require_tunnel$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 			self.removeSocket(socket);
 		});
 	}
-	util$2.inherits(TunnelingAgent, events$1.EventEmitter);
+	util$3.inherits(TunnelingAgent, events$1.EventEmitter);
 	TunnelingAgent.prototype.addRequest = function addRequest(req, host, port, localAddress) {
 		var self = this;
 		var options = mergeOptions({ request: req }, self.options, toOptions(host, port, localAddress));
@@ -263,6 +343,19 @@ var require_tunnel$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 			pending.request.onSocket(socket);
 		});
 	};
+	function createSecureSocket(options, cb) {
+		var self = this;
+		TunnelingAgent.prototype.createSocket.call(self, options, function(socket) {
+			var hostHeader = options.request.getHeader("host");
+			var tlsOptions = mergeOptions({}, self.options, {
+				socket,
+				servername: hostHeader ? hostHeader.replace(/:.*$/, "") : options.host
+			});
+			var secureSocket = tls.connect(0, tlsOptions);
+			self.sockets[self.sockets.indexOf(socket)] = secureSocket;
+			cb(secureSocket);
+		});
+	}
 	function toOptions(host, port, localAddress) {
 		if (typeof host === "string") return {
 			host,
@@ -371,7 +464,7 @@ var require_symbols$4 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/core/errors.js
-var require_errors$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_errors = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const kUndiciError = Symbol.for("undici.error.UND_ERR");
 	var UndiciError = class extends Error {
 		constructor(message) {
@@ -952,17 +1045,17 @@ var require_tree = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/core/util.js
-var require_util$8 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util$7 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$26 = __require("node:assert");
 	const { kDestroyed, kBodyUsed, kListeners, kBody } = require_symbols$4();
 	const { IncomingMessage } = __require("node:http");
-	const stream = __require("node:stream");
+	const stream$1 = __require("node:stream");
 	const net$2 = __require("node:net");
 	const { Blob: Blob$3 } = __require("node:buffer");
 	const nodeUtil$3 = __require("node:util");
 	const { stringify } = __require("node:querystring");
 	const { EventEmitter: EE$2 } = __require("node:events");
-	const { InvalidArgumentError } = require_errors$1();
+	const { InvalidArgumentError } = require_errors();
 	const { headerNameLowerCasedRecord } = require_constants$5();
 	const { tree } = require_tree();
 	const [nodeMajor, nodeMinor] = process.versions.node.split(".").map((v) => Number(v));
@@ -1084,7 +1177,7 @@ var require_util$8 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		return null;
 	}
 	function isDestroyed(body) {
-		return body && !!(body.destroyed || body[kDestroyed] || stream.isDestroyed?.(body));
+		return body && !!(body.destroyed || body[kDestroyed] || stream$1.isDestroyed?.(body));
 	}
 	function destroy(stream, err) {
 		if (stream == null || !isStream(stream) || isDestroyed(stream)) return;
@@ -1181,13 +1274,13 @@ var require_util$8 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		}
 	}
 	function isDisturbed(body) {
-		return !!(body && (stream.isDisturbed(body) || body[kBodyUsed]));
+		return !!(body && (stream$1.isDisturbed(body) || body[kBodyUsed]));
 	}
 	function isErrored(body) {
-		return !!(body && stream.isErrored(body));
+		return !!(body && stream$1.isErrored(body));
 	}
 	function isReadable(body) {
-		return !!(body && stream.isReadable(body));
+		return !!(body && stream$1.isReadable(body));
 	}
 	function getSocketInfo(socket) {
 		return {
@@ -1408,10 +1501,10 @@ var require_util$8 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/core/diagnostics.js
 var require_diagnostics = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const diagnosticsChannel = __require("node:diagnostics_channel");
-	const util$1 = __require("node:util");
-	const undiciDebugLog = util$1.debuglog("undici");
-	const fetchDebuglog = util$1.debuglog("fetch");
-	const websocketDebuglog = util$1.debuglog("websocket");
+	const util$2 = __require("node:util");
+	const undiciDebugLog = util$2.debuglog("undici");
+	const fetchDebuglog = util$2.debuglog("fetch");
+	const websocketDebuglog = util$2.debuglog("websocket");
 	let isClientSet = false;
 	const channels = {
 		beforeConnect: diagnosticsChannel.channel("undici:client:beforeConnect"),
@@ -1504,9 +1597,9 @@ var require_diagnostics = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/core/request.js
 var require_request$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { InvalidArgumentError, NotSupportedError } = require_errors$1();
+	const { InvalidArgumentError, NotSupportedError } = require_errors();
 	const assert$25 = __require("node:assert");
-	const { isValidHTTPToken, isValidHeaderValue, isStream, destroy, isBuffer, isFormDataLike, isIterable, isBlobLike, buildURL, validateHandler, getServerName, normalizedMethodRecords } = require_util$8();
+	const { isValidHTTPToken, isValidHeaderValue, isStream, destroy, isBuffer, isFormDataLike, isIterable, isBlobLike, buildURL, validateHandler, getServerName, normalizedMethodRecords } = require_util$7();
 	const { channels } = require_diagnostics();
 	const { headerNameLowerCasedRecord } = require_constants$5();
 	const invalidPathRegex = /[^\u0021-\u00ff]/;
@@ -1770,7 +1863,7 @@ var require_dispatcher = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/dispatcher/dispatcher-base.js
 var require_dispatcher_base = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Dispatcher = require_dispatcher();
-	const { ClientDestroyedError, ClientClosedError, InvalidArgumentError } = require_errors$1();
+	const { ClientDestroyedError, ClientClosedError, InvalidArgumentError } = require_errors();
 	const { kDestroy, kClose, kClosed, kDestroyed, kDispatch, kInterceptors } = require_symbols$4();
 	const kOnDestroyed = Symbol("onDestroyed");
 	const kOnClosed = Symbol("onClosed");
@@ -2228,8 +2321,8 @@ var require_timers = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_connect = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const net$1 = __require("node:net");
 	const assert$24 = __require("node:assert");
-	const util = require_util$8();
-	const { InvalidArgumentError, ConnectTimeoutError } = require_errors$1();
+	const util = require_util$7();
+	const { InvalidArgumentError, ConnectTimeoutError } = require_errors();
 	const timers = require_timers();
 	function noop() {}
 	let tls;
@@ -2395,7 +2488,7 @@ var require_connect = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/llhttp/utils.js
-var require_utils$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
+var require_utils = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.enumToMap = void 0;
 	function enumToMap(obj) {
@@ -2413,7 +2506,7 @@ var require_utils$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 var require_constants$4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.SPECIAL_HEADERS = exports.HEADER_STATE = exports.MINOR = exports.MAJOR = exports.CONNECTION_TOKEN_CHARS = exports.HEADER_CHARS = exports.TOKEN = exports.STRICT_TOKEN = exports.HEX = exports.URL_CHAR = exports.STRICT_URL_CHAR = exports.USERINFO_CHARS = exports.MARK = exports.ALPHANUM = exports.NUM = exports.HEX_MAP = exports.NUM_MAP = exports.ALPHA = exports.FINISH = exports.H_METHOD_MAP = exports.METHOD_MAP = exports.METHODS_RTSP = exports.METHODS_ICE = exports.METHODS_HTTP = exports.METHODS = exports.LENIENT_FLAGS = exports.FLAGS = exports.TYPE = exports.ERROR = void 0;
-	const utils_1 = require_utils$1();
+	const utils_1 = require_utils();
 	(function(ERROR) {
 		ERROR[ERROR["OK"] = 0] = "OK";
 		ERROR[ERROR["INTERNAL"] = 1] = "INTERNAL";
@@ -3342,7 +3435,7 @@ var require_data_url = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_webidl = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { types: types$3, inspect } = __require("node:util");
 	const { markAsUncloneable } = __require("node:worker_threads");
-	const { toUSVString } = require_util$8();
+	const { toUSVString } = require_util$7();
 	/** @type {import('../../../types/webidl').Webidl} */
 	const webidl = {};
 	webidl.converters = {};
@@ -3655,14 +3748,14 @@ var require_webidl = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/util.js
-var require_util$7 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util$6 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { Transform: Transform$2 } = __require("node:stream");
 	const zlib$1 = __require("node:zlib");
 	const { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = require_constants$3();
 	const { getGlobalOrigin } = require_global$1();
 	const { collectASequenceOfCodePoints, collectAnHTTPQuotedString, removeChars, parseMIMEType } = require_data_url();
 	const { performance: performance$1 } = __require("node:perf_hooks");
-	const { isBlobLike, ReadableStreamFrom, isValidHTTPToken, normalizedMethodRecordsBase } = require_util$8();
+	const { isBlobLike, ReadableStreamFrom, isValidHTTPToken, normalizedMethodRecordsBase } = require_util$7();
 	const assert$22 = __require("node:assert");
 	const { isUint8Array } = __require("node:util/types");
 	const { webidl } = require_webidl();
@@ -4543,9 +4636,9 @@ var require_file = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/formdata.js
 var require_formdata = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { isBlobLike, iteratorMixin } = require_util$7();
+	const { isBlobLike, iteratorMixin } = require_util$6();
 	const { kState } = require_symbols$3();
-	const { kEnumerableProperty } = require_util$8();
+	const { kEnumerableProperty } = require_util$7();
 	const { FileLike, isFileLike } = require_file();
 	const { webidl } = require_webidl();
 	const { File: NativeFile } = __require("node:buffer");
@@ -4678,8 +4771,8 @@ var require_formdata = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/formdata-parser.js
 var require_formdata_parser = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { isUSVString, bufferToLowerCasedHeaderName } = require_util$8();
-	const { utf8DecodeBytes } = require_util$7();
+	const { isUSVString, bufferToLowerCasedHeaderName } = require_util$7();
+	const { utf8DecodeBytes } = require_util$6();
 	const { HTTP_TOKEN_CODEPOINTS, isomorphicDecode } = require_data_url();
 	const { isFileLike } = require_file();
 	const { makeEntry } = require_formdata();
@@ -4877,8 +4970,8 @@ var require_formdata_parser = /* @__PURE__ */ __commonJSMin(((exports, module) =
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/body.js
 var require_body = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const util = require_util$8();
-	const { ReadableStreamFrom, isBlobLike, isReadableStreamLike, readableStreamClose, createDeferredPromise, fullyReadBody, extractMimeType, utf8DecodeBytes } = require_util$7();
+	const util = require_util$7();
+	const { ReadableStreamFrom, isBlobLike, isReadableStreamLike, readableStreamClose, createDeferredPromise, fullyReadBody, extractMimeType, utf8DecodeBytes } = require_util$6();
 	const { FormData } = require_formdata();
 	const { kState } = require_symbols$3();
 	const { webidl } = require_webidl();
@@ -5135,10 +5228,10 @@ Content-Type: ${value.type || "application/octet-stream"}\r\n\r\n`);
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/dispatcher/client-h1.js
 var require_client_h1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$19 = __require("node:assert");
-	const util = require_util$8();
+	const util = require_util$7();
 	const { channels } = require_diagnostics();
 	const timers = require_timers();
-	const { RequestContentLengthMismatchError, ResponseContentLengthMismatchError, RequestAbortedError, HeadersTimeoutError, HeadersOverflowError, SocketError, InformationalError, BodyTimeoutError, HTTPParserError, ResponseExceededMaxSizeError } = require_errors$1();
+	const { RequestContentLengthMismatchError, ResponseContentLengthMismatchError, RequestAbortedError, HeadersTimeoutError, HeadersOverflowError, SocketError, InformationalError, BodyTimeoutError, HTTPParserError, ResponseExceededMaxSizeError } = require_errors();
 	const { kUrl, kReset, kClient, kParser, kBlocking, kRunning, kPending, kSize, kWriting, kQueue, kNoRef, kKeepAliveDefaultTimeout, kHostHeader, kPendingIdx, kRunningIdx, kError, kPipelining, kSocket, kKeepAliveTimeoutValue, kMaxHeadersSize, kKeepAliveMaxTimeout, kKeepAliveTimeoutThreshold, kHeadersTimeout, kBodyTimeout, kStrictContentLength, kMaxRequests, kCounter, kMaxResponseSize, kOnError, kResume, kHTTPContext } = require_symbols$4();
 	const constants = require_constants$4();
 	const EMPTY_BUF = Buffer.alloc(0);
@@ -5939,8 +6032,8 @@ var require_client_h1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_client_h2 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$18 = __require("node:assert");
 	const { pipeline: pipeline$2 } = __require("node:stream");
-	const util = require_util$8();
-	const { RequestContentLengthMismatchError, RequestAbortedError, SocketError, InformationalError } = require_errors$1();
+	const util = require_util$7();
+	const { RequestContentLengthMismatchError, RequestAbortedError, SocketError, InformationalError } = require_errors();
 	const { kUrl, kReset, kClient, kRunning, kPending, kQueue, kPendingIdx, kRunningIdx, kError, kSocket, kStrictContentLength, kOnError, kMaxConcurrentStreams, kHTTP2Session, kResume, kSize, kHTTPContext } = require_symbols$4();
 	const kOpenStreams = Symbol("open streams");
 	let extractBody;
@@ -6323,10 +6416,10 @@ var require_client_h2 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/handler/redirect-handler.js
 var require_redirect_handler = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const util = require_util$8();
+	const util = require_util$7();
 	const { kBodyUsed } = require_symbols$4();
 	const assert$17 = __require("node:assert");
-	const { InvalidArgumentError } = require_errors$1();
+	const { InvalidArgumentError } = require_errors();
 	const EE$1 = __require("node:events");
 	const redirectableStatusCodes = [
 		300,
@@ -6471,12 +6564,12 @@ var require_redirect_interceptor = /* @__PURE__ */ __commonJSMin(((exports, modu
 var require_client = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$16 = __require("node:assert");
 	const net = __require("node:net");
-	const http = __require("node:http");
-	const util = require_util$8();
+	const http$1 = __require("node:http");
+	const util = require_util$7();
 	const { channels } = require_diagnostics();
 	const Request = require_request$1();
 	const DispatcherBase = require_dispatcher_base();
-	const { InvalidArgumentError, InformationalError, ClientDestroyedError } = require_errors$1();
+	const { InvalidArgumentError, InformationalError, ClientDestroyedError } = require_errors();
 	const buildConnector = require_connect();
 	const { kUrl, kServerName, kClient, kBusy, kConnect, kResuming, kRunning, kPending, kSize, kQueue, kConnected, kConnecting, kNeedDrain, kKeepAliveDefaultTimeout, kHostHeader, kPendingIdx, kRunningIdx, kError, kPipelining, kKeepAliveTimeoutValue, kMaxHeadersSize, kKeepAliveMaxTimeout, kKeepAliveTimeoutThreshold, kHeadersTimeout, kBodyTimeout, kStrictContentLength, kConnector, kMaxRedirections, kMaxRequests, kCounter, kClose, kDestroy, kDispatch, kInterceptors, kLocalAddress, kMaxResponseSize, kOnError, kHTTPContext, kMaxConcurrentStreams, kResume } = require_symbols$4();
 	const connectH1 = require_client_h1();
@@ -6541,7 +6634,7 @@ var require_client = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			this[kUrl] = util.parseOrigin(url);
 			this[kConnector] = connect;
 			this[kPipelining] = pipelining != null ? pipelining : 1;
-			this[kMaxHeadersSize] = maxHeaderSize || http.maxHeaderSize;
+			this[kMaxHeadersSize] = maxHeaderSize || http$1.maxHeaderSize;
 			this[kKeepAliveDefaultTimeout] = keepAliveTimeout == null ? 4e3 : keepAliveTimeout;
 			this[kKeepAliveMaxTimeout] = keepAliveMaxTimeout == null ? 6e5 : keepAliveMaxTimeout;
 			this[kKeepAliveTimeoutThreshold] = keepAliveTimeoutThreshold == null ? 2e3 : keepAliveTimeoutThreshold;
@@ -7019,8 +7112,8 @@ var require_pool_base = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_pool = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { PoolBase, kClients, kNeedDrain, kAddClient, kGetDispatcher } = require_pool_base();
 	const Client = require_client();
-	const { InvalidArgumentError } = require_errors$1();
-	const util = require_util$8();
+	const { InvalidArgumentError } = require_errors();
+	const util = require_util$7();
 	const { kUrl, kInterceptors } = require_symbols$4();
 	const buildConnector = require_connect();
 	const kOptions = Symbol("options");
@@ -7078,11 +7171,11 @@ var require_pool = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/dispatcher/balanced-pool.js
 var require_balanced_pool = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { BalancedPoolMissingUpstreamError, InvalidArgumentError } = require_errors$1();
+	const { BalancedPoolMissingUpstreamError, InvalidArgumentError } = require_errors();
 	const { PoolBase, kClients, kNeedDrain, kAddClient, kRemoveClient, kGetDispatcher } = require_pool_base();
 	const Pool = require_pool();
 	const { kUrl, kInterceptors } = require_symbols$4();
-	const { parseOrigin } = require_util$8();
+	const { parseOrigin } = require_util$7();
 	const kFactory = Symbol("factory");
 	const kOptions = Symbol("options");
 	const kGreatestCommonDivisor = Symbol("kGreatestCommonDivisor");
@@ -7189,12 +7282,12 @@ var require_balanced_pool = /* @__PURE__ */ __commonJSMin(((exports, module) => 
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/dispatcher/agent.js
 var require_agent = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { InvalidArgumentError } = require_errors$1();
+	const { InvalidArgumentError } = require_errors();
 	const { kClients, kRunning, kClose, kDestroy, kDispatch, kInterceptors } = require_symbols$4();
 	const DispatcherBase = require_dispatcher_base();
 	const Pool = require_pool();
 	const Client = require_client();
-	const util = require_util$8();
+	const util = require_util$7();
 	const createRedirectInterceptor = require_redirect_interceptor();
 	const kOnConnect = Symbol("onConnect");
 	const kOnDisconnect = Symbol("onDisconnect");
@@ -7274,7 +7367,7 @@ var require_proxy_agent = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Agent = require_agent();
 	const Pool = require_pool();
 	const DispatcherBase = require_dispatcher_base();
-	const { InvalidArgumentError, RequestAbortedError, SecureProxyConnectionError } = require_errors$1();
+	const { InvalidArgumentError, RequestAbortedError, SecureProxyConnectionError } = require_errors();
 	const buildConnector = require_connect();
 	const Client = require_client();
 	const kAgent = Symbol("proxy agent");
@@ -7569,8 +7662,8 @@ var require_env_http_proxy_agent = /* @__PURE__ */ __commonJSMin(((exports, modu
 var require_retry_handler = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$15 = __require("node:assert");
 	const { kRetryHandlerDefaultRetry } = require_symbols$4();
-	const { RequestRetryError } = require_errors$1();
-	const { isDisturbed, parseHeaders, parseRangeHeader, wrapRequestBody } = require_util$8();
+	const { RequestRetryError } = require_errors();
+	const { isDisturbed, parseHeaders, parseRangeHeader, wrapRequestBody } = require_util$7();
 	function calculateRetryAfterHeader(retryAfter) {
 		const current = Date.now();
 		return new Date(retryAfter).getTime() - current;
@@ -7822,10 +7915,10 @@ var require_retry_agent = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/api/readable.js
 var require_readable = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$14 = __require("node:assert");
-	const { Readable: Readable$3 } = __require("node:stream");
-	const { RequestAbortedError, NotSupportedError, InvalidArgumentError, AbortError } = require_errors$1();
-	const util = require_util$8();
-	const { ReadableStreamFrom } = require_util$8();
+	const { Readable: Readable$2 } = __require("node:stream");
+	const { RequestAbortedError, NotSupportedError, InvalidArgumentError, AbortError } = require_errors();
+	const util = require_util$7();
+	const { ReadableStreamFrom } = require_util$7();
 	const kConsume = Symbol("kConsume");
 	const kReading = Symbol("kReading");
 	const kBody = Symbol("kBody");
@@ -7833,7 +7926,7 @@ var require_readable = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const kContentType = Symbol("kContentType");
 	const kContentLength = Symbol("kContentLength");
 	const noop = () => {};
-	var BodyReadable = class extends Readable$3 {
+	var BodyReadable = class extends Readable$2 {
 		constructor({ resume, abort, contentType = "", contentLength, highWaterMark = 64 * 1024 }) {
 			super({
 				autoDestroy: true,
@@ -8048,9 +8141,9 @@ var require_readable = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/api/util.js
-var require_util$6 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util$5 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$13 = __require("node:assert");
-	const { ResponseStatusCodeError } = require_errors$1();
+	const { ResponseStatusCodeError } = require_errors();
 	const { chunksDecode } = require_readable();
 	const CHUNK_LIMIT = 128 * 1024;
 	async function getResolveErrorBodyCallback({ callback, body, contentType, statusCode, statusMessage, headers }) {
@@ -8104,9 +8197,9 @@ var require_util$6 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_api_request = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$12 = __require("node:assert");
 	const { Readable } = require_readable();
-	const { InvalidArgumentError, RequestAbortedError } = require_errors$1();
-	const util = require_util$8();
-	const { getResolveErrorBodyCallback } = require_util$6();
+	const { InvalidArgumentError, RequestAbortedError } = require_errors();
+	const util = require_util$7();
+	const { getResolveErrorBodyCallback } = require_util$5();
 	const { AsyncResource: AsyncResource$4 } = __require("node:async_hooks");
 	var RequestHandler = class extends AsyncResource$4 {
 		constructor(opts, callback) {
@@ -8254,8 +8347,8 @@ var require_api_request = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/api/abort-signal.js
 var require_abort_signal = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { addAbortListener } = require_util$8();
-	const { RequestAbortedError } = require_errors$1();
+	const { addAbortListener } = require_util$7();
+	const { RequestAbortedError } = require_errors();
 	const kListener = Symbol("kListener");
 	const kSignal = Symbol("kSignal");
 	function abort(self) {
@@ -8294,10 +8387,10 @@ var require_abort_signal = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/api/api-stream.js
 var require_api_stream = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$11 = __require("node:assert");
-	const { finished: finished$2, PassThrough: PassThrough$1 } = __require("node:stream");
-	const { InvalidArgumentError, InvalidReturnValueError } = require_errors$1();
-	const util = require_util$8();
-	const { getResolveErrorBodyCallback } = require_util$6();
+	const { finished: finished$1, PassThrough: PassThrough$1 } = __require("node:stream");
+	const { InvalidArgumentError, InvalidReturnValueError } = require_errors();
+	const util = require_util$7();
+	const { getResolveErrorBodyCallback } = require_util$5();
 	const { AsyncResource: AsyncResource$3 } = __require("node:async_hooks");
 	const { addSignal, removeSignal } = require_abort_signal();
 	var StreamHandler = class extends AsyncResource$3 {
@@ -8373,7 +8466,7 @@ var require_api_stream = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 					context
 				});
 				if (!res || typeof res.write !== "function" || typeof res.end !== "function" || typeof res.on !== "function") throw new InvalidReturnValueError("expected Writable");
-				finished$2(res, { readable: false }, (err) => {
+				finished$1(res, { readable: false }, (err) => {
 					const { callback, res, opaque, trailers, abort } = this;
 					this.res = null;
 					if (err || !res.readable) util.destroy(res, err);
@@ -8438,14 +8531,14 @@ var require_api_stream = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/api/api-pipeline.js
 var require_api_pipeline = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { Readable: Readable$2, Duplex, PassThrough } = __require("node:stream");
-	const { InvalidArgumentError, InvalidReturnValueError, RequestAbortedError } = require_errors$1();
-	const util = require_util$8();
+	const { Readable: Readable$1, Duplex, PassThrough } = __require("node:stream");
+	const { InvalidArgumentError, InvalidReturnValueError, RequestAbortedError } = require_errors();
+	const util = require_util$7();
 	const { AsyncResource: AsyncResource$2 } = __require("node:async_hooks");
 	const { addSignal, removeSignal } = require_abort_signal();
 	const assert$10 = __require("node:assert");
 	const kResume = Symbol("resume");
-	var PipelineRequest = class extends Readable$2 {
+	var PipelineRequest = class extends Readable$1 {
 		constructor() {
 			super({ autoDestroy: true });
 			this[kResume] = null;
@@ -8462,7 +8555,7 @@ var require_api_pipeline = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			callback(err);
 		}
 	};
-	var PipelineResponse = class extends Readable$2 {
+	var PipelineResponse = class extends Readable$1 {
 		constructor(resume) {
 			super({ autoDestroy: true });
 			this[kResume] = resume;
@@ -8606,9 +8699,9 @@ var require_api_pipeline = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/api/api-upgrade.js
 var require_api_upgrade = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { InvalidArgumentError, SocketError } = require_errors$1();
+	const { InvalidArgumentError, SocketError } = require_errors();
 	const { AsyncResource: AsyncResource$1 } = __require("node:async_hooks");
-	const util = require_util$8();
+	const util = require_util$7();
 	const { addSignal, removeSignal } = require_abort_signal();
 	const assert$9 = __require("node:assert");
 	var UpgradeHandler = class extends AsyncResource$1 {
@@ -8687,8 +8780,8 @@ var require_api_upgrade = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_api_connect = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$8 = __require("node:assert");
 	const { AsyncResource } = __require("node:async_hooks");
-	const { InvalidArgumentError, SocketError } = require_errors$1();
-	const util = require_util$8();
+	const { InvalidArgumentError, SocketError } = require_errors();
+	const util = require_util$7();
 	const { addSignal, removeSignal } = require_abort_signal();
 	var ConnectHandler = class extends AsyncResource {
 		constructor(opts, callback) {
@@ -8772,7 +8865,7 @@ var require_api = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/mock/mock-errors.js
 var require_mock_errors = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { UndiciError } = require_errors$1();
+	const { UndiciError } = require_errors();
 	const kMockNotMatchedError = Symbol.for("undici.error.UND_MOCK_ERR_MOCK_NOT_MATCHED");
 	module.exports = { MockNotMatchedError: class MockNotMatchedError extends UndiciError {
 		constructor(message) {
@@ -8818,7 +8911,7 @@ var require_mock_symbols = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_mock_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { MockNotMatchedError } = require_mock_errors();
 	const { kDispatches, kMockAgent, kOriginalDispatch, kOrigin, kGetNetConnect } = require_mock_symbols();
-	const { buildURL } = require_util$8();
+	const { buildURL } = require_util$7();
 	const { STATUS_CODES: STATUS_CODES$1 } = __require("node:http");
 	const { types: { isPromise } } = __require("node:util");
 	function matchValue(match, value) {
@@ -9055,8 +9148,8 @@ var require_mock_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_mock_interceptor = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { getResponseData, buildKey, addMockDispatch } = require_mock_utils();
 	const { kDispatches, kDispatchKey, kDefaultHeaders, kDefaultTrailers, kContentLength, kMockDispatch } = require_mock_symbols();
-	const { InvalidArgumentError } = require_errors$1();
-	const { buildURL } = require_util$8();
+	const { InvalidArgumentError } = require_errors();
+	const { buildURL } = require_util$7();
 	/**
 	* Defines the scope API for an interceptor reply
 	*/
@@ -9199,7 +9292,7 @@ var require_mock_client = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { kDispatches, kMockAgent, kClose, kOriginalClose, kOrigin, kOriginalDispatch, kConnected } = require_mock_symbols();
 	const { MockInterceptor } = require_mock_interceptor();
 	const Symbols = require_symbols$4();
-	const { InvalidArgumentError } = require_errors$1();
+	const { InvalidArgumentError } = require_errors();
 	/**
 	* MockClient provides an API that extends the Client to influence the mockDispatches.
 	*/
@@ -9242,7 +9335,7 @@ var require_mock_pool = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { kDispatches, kMockAgent, kClose, kOriginalClose, kOrigin, kOriginalDispatch, kConnected } = require_mock_symbols();
 	const { MockInterceptor } = require_mock_interceptor();
 	const Symbols = require_symbols$4();
-	const { InvalidArgumentError } = require_errors$1();
+	const { InvalidArgumentError } = require_errors();
 	/**
 	* MockPool provides an API that extends the Pool to influence the mockDispatches.
 	*/
@@ -9352,7 +9445,7 @@ var require_mock_agent = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const MockClient = require_mock_client();
 	const MockPool = require_mock_pool();
 	const { matchValue, buildMockOptions } = require_mock_utils();
-	const { InvalidArgumentError, UndiciError } = require_errors$1();
+	const { InvalidArgumentError, UndiciError } = require_errors();
 	const Dispatcher = require_dispatcher();
 	const Pluralizer = require_pluralizer();
 	const PendingInterceptorsFormatter = require_pending_interceptors_formatter();
@@ -9450,7 +9543,7 @@ ${pendingInterceptorsFormatter.format(pending)}
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/global.js
 var require_global = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const globalDispatcher = Symbol.for("undici.globalDispatcher.1");
-	const { InvalidArgumentError } = require_errors$1();
+	const { InvalidArgumentError } = require_errors();
 	const Agent = require_agent();
 	if (getGlobalDispatcher() === void 0) setGlobalDispatcher(new Agent());
 	function setGlobalDispatcher(agent) {
@@ -9544,8 +9637,8 @@ var require_retry = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/interceptor/dump.js
 var require_dump = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const util = require_util$8();
-	const { InvalidArgumentError, RequestAbortedError } = require_errors$1();
+	const util = require_util$7();
+	const { InvalidArgumentError, RequestAbortedError } = require_errors();
 	const DecoratorHandler = require_decorator_handler();
 	var DumpHandler = class extends DecoratorHandler {
 		#maxSize = 1024 * 1024;
@@ -9614,7 +9707,7 @@ var require_dns = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { isIP } = __require("node:net");
 	const { lookup } = __require("node:dns");
 	const DecoratorHandler = require_decorator_handler();
-	const { InvalidArgumentError, InformationalError } = require_errors$1();
+	const { InvalidArgumentError, InformationalError } = require_errors();
 	const maxInt = Math.pow(2, 31) - 1;
 	var DNSInstance = class {
 		#maxTTL = 0;
@@ -9823,13 +9916,13 @@ var require_dns = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/headers.js
-var require_headers$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_headers = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { kConstruct } = require_symbols$4();
-	const { kEnumerableProperty } = require_util$8();
-	const { iteratorMixin, isValidHeaderName, isValidHeaderValue } = require_util$7();
+	const { kEnumerableProperty } = require_util$7();
+	const { iteratorMixin, isValidHeaderName, isValidHeaderValue } = require_util$6();
 	const { webidl } = require_webidl();
 	const assert$7 = __require("node:assert");
-	const util = __require("node:util");
+	const util$1 = __require("node:util");
 	const kHeadersMap = Symbol("headers map");
 	const kHeadersSortedMap = Symbol("headers map sorted");
 	/**
@@ -10124,9 +10217,9 @@ var require_headers$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			}
 			return this.#headersList[kHeadersSortedMap] = headers;
 		}
-		[util.inspect.custom](depth, options) {
+		[util$1.inspect.custom](depth, options) {
 			options.depth ??= depth;
-			return `Headers ${util.formatWithOptions(options, this.#headersList.entries)}`;
+			return `Headers ${util$1.formatWithOptions(options, this.#headersList.entries)}`;
 		}
 		static getHeadersGuard(o) {
 			return o.#guard;
@@ -10158,12 +10251,12 @@ var require_headers$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			value: "Headers",
 			configurable: true
 		},
-		[util.inspect.custom]: { enumerable: false }
+		[util$1.inspect.custom]: { enumerable: false }
 	});
 	webidl.converters.HeadersInit = function(V, prefix, argument) {
 		if (webidl.util.Type(V) === "Object") {
 			const iterator = Reflect.get(V, Symbol.iterator);
-			if (!util.types.isProxy(V) && iterator === Headers.prototype.entries) try {
+			if (!util$1.types.isProxy(V) && iterator === Headers.prototype.entries) try {
 				return getHeadersList(V).entriesList;
 			} catch {}
 			if (typeof iterator === "function") return webidl.converters["sequence<sequence<ByteString>>"](V, prefix, argument, iterator.bind(V));
@@ -10189,12 +10282,12 @@ var require_headers$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/response.js
 var require_response = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { Headers, HeadersList, fill, getHeadersGuard, setHeadersGuard, setHeadersList } = require_headers$1();
+	const { Headers, HeadersList, fill, getHeadersGuard, setHeadersGuard, setHeadersList } = require_headers();
 	const { extractBody, cloneBody, mixinBody, hasFinalizationRegistry, streamRegistry, bodyUnusable } = require_body();
-	const util = require_util$8();
+	const util = require_util$7();
 	const nodeUtil$1 = __require("node:util");
 	const { kEnumerableProperty } = util;
-	const { isValidReasonPhrase, isCancelled, isAborted, isBlobLike, serializeJavascriptValueToJSONString, isErrorLike, isomorphicEncode, environmentSettingsObject: relevantRealm } = require_util$7();
+	const { isValidReasonPhrase, isCancelled, isAborted, isBlobLike, serializeJavascriptValueToJSONString, isErrorLike, isomorphicEncode, environmentSettingsObject: relevantRealm } = require_util$6();
 	const { redirectStatusSet, nullBodyStatus } = require_constants$3();
 	const { kState, kHeaders } = require_symbols$3();
 	const { webidl } = require_webidl();
@@ -10540,11 +10633,11 @@ var require_dispatcher_weakref = /* @__PURE__ */ __commonJSMin(((exports, module
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/request.js
 var require_request = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { extractBody, mixinBody, cloneBody, bodyUnusable } = require_body();
-	const { Headers, fill: fillHeaders, HeadersList, setHeadersGuard, getHeadersGuard, setHeadersList, getHeadersList } = require_headers$1();
+	const { Headers, fill: fillHeaders, HeadersList, setHeadersGuard, getHeadersGuard, setHeadersList, getHeadersList } = require_headers();
 	const { FinalizationRegistry } = require_dispatcher_weakref()();
-	const util = require_util$8();
+	const util = require_util$7();
 	const nodeUtil = __require("node:util");
-	const { isValidHTTPToken, sameOrigin, environmentSettingsObject } = require_util$7();
+	const { isValidHTTPToken, sameOrigin, environmentSettingsObject } = require_util$6();
 	const { forbiddenMethodsSet, corsSafeListedMethodsSet, referrerPolicy, requestRedirect, requestMode, requestCredentials, requestCache, requestDuplex } = require_constants$3();
 	const { kEnumerableProperty, normalizedMethodRecordsBase, normalizedMethodRecords } = util;
 	const { kHeaders, kSignal, kState, kDispatcher } = require_symbols$3();
@@ -11049,17 +11142,17 @@ var require_request = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fetch/index.js
 var require_fetch = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { makeNetworkError, makeAppropriateNetworkError, filterResponse, makeResponse, fromInnerResponse } = require_response();
-	const { HeadersList } = require_headers$1();
+	const { HeadersList } = require_headers();
 	const { Request, cloneRequest } = require_request();
 	const zlib = __require("node:zlib");
-	const { bytesMatch, makePolicyContainer, clonePolicyContainer, requestBadPort, TAOCheck, appendRequestOriginHeader, responseLocationURL, requestCurrentURL, setRequestReferrerPolicyOnRedirect, tryUpgradeRequestToAPotentiallyTrustworthyURL, createOpaqueTimingInfo, appendFetchMetadata, corsCheck, crossOriginResourcePolicyCheck, determineRequestsReferrer, coarsenedSharedCurrentTime, createDeferredPromise, isBlobLike, sameOrigin, isCancelled, isAborted, isErrorLike, fullyReadBody, readableStreamClose, isomorphicEncode, urlIsLocal, urlIsHttpHttpsScheme, urlHasHttpsScheme, clampAndCoarsenConnectionTimingInfo, simpleRangeHeaderValue, buildContentRange, createInflate, extractMimeType } = require_util$7();
+	const { bytesMatch, makePolicyContainer, clonePolicyContainer, requestBadPort, TAOCheck, appendRequestOriginHeader, responseLocationURL, requestCurrentURL, setRequestReferrerPolicyOnRedirect, tryUpgradeRequestToAPotentiallyTrustworthyURL, createOpaqueTimingInfo, appendFetchMetadata, corsCheck, crossOriginResourcePolicyCheck, determineRequestsReferrer, coarsenedSharedCurrentTime, createDeferredPromise, isBlobLike, sameOrigin, isCancelled, isAborted, isErrorLike, fullyReadBody, readableStreamClose, isomorphicEncode, urlIsLocal, urlIsHttpHttpsScheme, urlHasHttpsScheme, clampAndCoarsenConnectionTimingInfo, simpleRangeHeaderValue, buildContentRange, createInflate, extractMimeType } = require_util$6();
 	const { kState, kDispatcher } = require_symbols$3();
 	const assert$4 = __require("node:assert");
 	const { safelyExtractBody, extractBody } = require_body();
 	const { redirectStatusSet, nullBodyStatus, safeMethodsSet, requestBodyHeader, subresourceSet } = require_constants$3();
 	const EE = __require("node:events");
-	const { Readable: Readable$1, pipeline: pipeline$1, finished: finished$1 } = __require("node:stream");
-	const { addAbortListener, isErrored, isReadable, bufferToLowerCasedHeaderName } = require_util$8();
+	const { Readable, pipeline: pipeline$1, finished } = __require("node:stream");
+	const { addAbortListener, isErrored, isReadable, bufferToLowerCasedHeaderName } = require_util$7();
 	const { dataURLProcessor, serializeAMimeType, minimizeSupportedMimeType } = require_data_url();
 	const { getGlobalDispatcher } = require_global();
 	const { webidl } = require_webidl();
@@ -11368,7 +11461,7 @@ var require_fetch = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		});
 		const internalResponse = response.type === "error" ? response : response.internalResponse ?? response;
 		if (internalResponse.body == null) processResponseEndOfBody();
-		else finished$1(internalResponse.body.stream, () => {
+		else finished(internalResponse.body.stream, () => {
 			processResponseEndOfBody();
 		});
 	}
@@ -11660,7 +11753,7 @@ var require_fetch = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 					const headersList = new HeadersList();
 					for (let i = 0; i < rawHeaders.length; i += 2) headersList.append(bufferToLowerCasedHeaderName(rawHeaders[i]), rawHeaders[i + 1].toString("latin1"), true);
 					location = headersList.get("location", true);
-					this.body = new Readable$1({ read: resume });
+					this.body = new Readable({ read: resume });
 					const decoders = [];
 					const willFollow = location && request.redirect === "follow" && redirectStatusSet.has(status);
 					if (request.method !== "HEAD" && request.method !== "CONNECT" && !nullBodyStatus.includes(status) && !willFollow) {
@@ -12065,7 +12158,7 @@ var require_encoding = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fileapi/util.js
-var require_util$5 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util$4 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { kState, kError, kResult, kAborted, kLastProgressEventFired } = require_symbols$2();
 	const { ProgressEvent } = require_progressevent();
 	const { getEncoding } = require_encoding();
@@ -12242,10 +12335,10 @@ var require_util$5 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/fileapi/filereader.js
 var require_filereader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { staticPropertyDescriptors, readOperation, fireAProgressEvent } = require_util$5();
+	const { staticPropertyDescriptors, readOperation, fireAProgressEvent } = require_util$4();
 	const { kState, kError, kResult, kEvents, kAborted } = require_symbols$2();
 	const { webidl } = require_webidl();
-	const { kEnumerableProperty } = require_util$8();
+	const { kEnumerableProperty } = require_util$7();
 	var FileReader = class FileReader extends EventTarget {
 		constructor() {
 			super();
@@ -12459,10 +12552,10 @@ var require_symbols$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/cache/util.js
-var require_util$4 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util$3 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const assert$3 = __require("node:assert");
 	const { URLSerializer } = require_data_url();
-	const { isValidHeaderName } = require_util$7();
+	const { isValidHeaderName } = require_util$6();
 	/**
 	* @see https://url.spec.whatwg.org/#concept-url-equals
 	* @param {URL} A
@@ -12495,14 +12588,14 @@ var require_util$4 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/cache/cache.js
 var require_cache = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { kConstruct } = require_symbols$1();
-	const { urlEquals, getFieldValues } = require_util$4();
-	const { kEnumerableProperty, isDisturbed } = require_util$8();
+	const { urlEquals, getFieldValues } = require_util$3();
+	const { kEnumerableProperty, isDisturbed } = require_util$7();
 	const { webidl } = require_webidl();
 	const { Response, cloneResponse, fromInnerResponse } = require_response();
 	const { Request, fromInnerRequest } = require_request();
 	const { kState } = require_symbols$3();
 	const { fetching } = require_fetch();
-	const { urlIsHttpHttpsScheme, createDeferredPromise, readAllBytes } = require_util$7();
+	const { urlIsHttpHttpsScheme, createDeferredPromise, readAllBytes } = require_util$6();
 	const assert$2 = __require("node:assert");
 	/**
 	* @see https://w3c.github.io/ServiceWorker/#dfn-cache-batch-operation
@@ -12946,7 +13039,7 @@ var require_cachestorage = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { kConstruct } = require_symbols$1();
 	const { Cache } = require_cache();
 	const { webidl } = require_webidl();
-	const { kEnumerableProperty } = require_util$8();
+	const { kEnumerableProperty } = require_util$7();
 	var CacheStorage = class CacheStorage {
 		/**
 		* @see https://w3c.github.io/ServiceWorker/#dfn-relevant-name-to-cache-map
@@ -13040,7 +13133,7 @@ var require_constants$2 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/cookies/util.js
-var require_util$3 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util$2 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	/**
 	* @param {string} value
 	* @returns {boolean}
@@ -13234,9 +13327,9 @@ var require_util$3 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/cookies/parse.js
-var require_parse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_parse$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { maxNameValuePairSize, maxAttributeValueSize } = require_constants$2();
-	const { isCTLExcludingHtab } = require_util$3();
+	const { isCTLExcludingHtab } = require_util$2();
 	const { collectASequenceOfCodePointsFast } = require_data_url();
 	const assert$1 = __require("node:assert");
 	/**
@@ -13339,10 +13432,10 @@ var require_parse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/cookies/index.js
 var require_cookies = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { parseSetCookie } = require_parse();
-	const { stringify } = require_util$3();
+	const { parseSetCookie } = require_parse$1();
+	const { stringify } = require_util$2();
 	const { webidl } = require_webidl();
-	const { Headers } = require_headers$1();
+	const { Headers } = require_headers();
 	/**
 	* @typedef {Object} Cookie
 	* @property {string} name
@@ -13491,7 +13584,7 @@ var require_cookies = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/websocket/events.js
 var require_events = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { webidl } = require_webidl();
-	const { kEnumerableProperty } = require_util$8();
+	const { kEnumerableProperty } = require_util$7();
 	const { kConstruct } = require_symbols$4();
 	const { MessagePort } = __require("node:worker_threads");
 	/**
@@ -13811,7 +13904,7 @@ var require_symbols = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/websocket/util.js
-var require_util$2 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { kReadyState, kController, kResponse, kBinaryType, kWebSocketURL } = require_symbols();
 	const { states, opcodes } = require_constants$1();
 	const { ErrorEvent, createFastMessageEvent } = require_events();
@@ -14068,13 +14161,13 @@ var require_frame = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_connection = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { uid, states, sentCloseFrameState, emptyBuffer, opcodes } = require_constants$1();
 	const { kReadyState, kSentClose, kByteParser, kReceivedClose, kResponse } = require_symbols();
-	const { fireEvent, failWebsocketConnection, isClosing, isClosed, isEstablished, parseExtensions } = require_util$2();
+	const { fireEvent, failWebsocketConnection, isClosing, isClosed, isEstablished, parseExtensions } = require_util$1();
 	const { channels } = require_diagnostics();
 	const { CloseEvent } = require_events();
 	const { makeRequest } = require_request();
 	const { fetching } = require_fetch();
-	const { Headers, getHeadersList } = require_headers$1();
-	const { getDecodeSplit } = require_util$7();
+	const { Headers, getHeadersList } = require_headers();
+	const { getDecodeSplit } = require_util$6();
 	const { WebsocketFrameSend } = require_frame();
 	/** @type {import('crypto')} */
 	let crypto;
@@ -14232,8 +14325,8 @@ var require_connection = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/websocket/permessage-deflate.js
 var require_permessage_deflate = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { createInflateRaw, Z_DEFAULT_WINDOWBITS } = __require("node:zlib");
-	const { isValidClientWindowBits } = require_util$2();
-	const { MessageSizeExceededError } = require_errors$1();
+	const { isValidClientWindowBits } = require_util$1();
+	const { MessageSizeExceededError } = require_errors();
 	const tail = Buffer.from([
 		0,
 		0,
@@ -14315,11 +14408,11 @@ var require_receiver = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { parserStates, opcodes, states, emptyBuffer, sentCloseFrameState } = require_constants$1();
 	const { kReadyState, kSentClose, kResponse, kReceivedClose } = require_symbols();
 	const { channels } = require_diagnostics();
-	const { isValidStatusCode, isValidOpcode, failWebsocketConnection, websocketMessageReceived, utf8Decode, isControlFrame, isTextBinaryFrame, isContinuationFrame } = require_util$2();
+	const { isValidStatusCode, isValidOpcode, failWebsocketConnection, websocketMessageReceived, utf8Decode, isControlFrame, isTextBinaryFrame, isContinuationFrame } = require_util$1();
 	const { WebsocketFrameSend } = require_frame();
 	const { closeWebSocketConnection } = require_connection();
 	const { PerMessageDeflate } = require_permessage_deflate();
-	const { MessageSizeExceededError } = require_errors$1();
+	const { MessageSizeExceededError } = require_errors();
 	var ByteParser = class extends Writable {
 		#buffers = [];
 		#fragmentsBytes = 0;
@@ -14696,13 +14789,13 @@ var require_sender = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 var require_websocket = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { webidl } = require_webidl();
 	const { URLSerializer } = require_data_url();
-	const { environmentSettingsObject } = require_util$7();
+	const { environmentSettingsObject } = require_util$6();
 	const { staticPropertyDescriptors, states, sentCloseFrameState, sendHints } = require_constants$1();
 	const { kWebSocketURL, kReadyState, kController, kBinaryType, kResponse, kSentClose, kByteParser } = require_symbols();
-	const { isConnecting, isEstablished, isClosing, isValidSubprotocol, fireEvent } = require_util$2();
+	const { isConnecting, isEstablished, isClosing, isValidSubprotocol, fireEvent } = require_util$1();
 	const { establishWebSocketConnection, closeWebSocketConnection } = require_connection();
 	const { ByteParser } = require_receiver();
-	const { kEnumerableProperty, isBlobLike } = require_util$8();
+	const { kEnumerableProperty, isBlobLike } = require_util$7();
 	const { getGlobalDispatcher } = require_global();
 	const { types } = __require("node:util");
 	const { ErrorEvent, CloseEvent } = require_events();
@@ -14989,7 +15082,7 @@ var require_websocket = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 }));
 //#endregion
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/eventsource/util.js
-var require_util$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+var require_util = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	/**
 	* Checks if the given value is a valid LastEventId.
 	* @param {string} value
@@ -15023,7 +15116,7 @@ var require_util$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/.pnpm/undici@6.26.0/node_modules/undici/lib/web/eventsource/eventsource-stream.js
 var require_eventsource_stream = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { Transform } = __require("node:stream");
-	const { isASCIINumber, isValidLastEventId } = require_util$1();
+	const { isASCIINumber, isValidLastEventId } = require_util();
 	/**
 	* @type {number[]} BOM
 	*/
@@ -15252,9 +15345,9 @@ var require_eventsource = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { parseMIMEType } = require_data_url();
 	const { createFastMessageEvent } = require_events();
 	const { isNetworkError } = require_response();
-	const { delay } = require_util$1();
-	const { kEnumerableProperty } = require_util$8();
-	const { environmentSettingsObject } = require_util$7();
+	const { delay } = require_util();
+	const { kEnumerableProperty } = require_util$7();
+	const { environmentSettingsObject } = require_util$6();
 	let experimentalWarned = false;
 	/**
 	* A reconnection time, in milliseconds. This must initially be an implementation-defined value,
@@ -15565,8 +15658,8 @@ var require_undici = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const ProxyAgent = require_proxy_agent();
 	const EnvHttpProxyAgent = require_env_http_proxy_agent();
 	const RetryAgent = require_retry_agent();
-	const errors = require_errors$1();
-	const util = require_util$8();
+	const errors = require_errors();
+	const util = require_util$7();
 	const { InvalidArgumentError } = errors;
 	const api = require_api();
 	const buildConnector = require_connect();
@@ -15642,7 +15735,7 @@ var require_undici = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			throw err;
 		}
 	};
-	module.exports.Headers = require_headers$1().Headers;
+	module.exports.Headers = require_headers().Headers;
 	module.exports.Response = require_response().Response;
 	module.exports.Request = require_request().Request;
 	module.exports.FormData = require_formdata().FormData;
@@ -15679,8 +15772,37 @@ var require_undici = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { EventSource } = require_eventsource();
 	module.exports.EventSource = EventSource;
 }));
-require_tunnel();
-require_undici();
+//#endregion
+//#region node_modules/.pnpm/@actions+http-client@4.0.1/node_modules/@actions/http-client/lib/index.js
+var import_tunnel = /* @__PURE__ */ __toESM(require_tunnel(), 1);
+var import_undici = require_undici();
+var __awaiter$12 = function(thisArg, _arguments, P, generator) {
+	function adopt(value) {
+		return value instanceof P ? value : new P(function(resolve) {
+			resolve(value);
+		});
+	}
+	return new (P || (P = Promise))(function(resolve, reject) {
+		function fulfilled(value) {
+			try {
+				step(generator.next(value));
+			} catch (e) {
+				reject(e);
+			}
+		}
+		function rejected(value) {
+			try {
+				step(generator["throw"](value));
+			} catch (e) {
+				reject(e);
+			}
+		}
+		function step(result) {
+			result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+		}
+		step((generator = generator.apply(thisArg, _arguments || [])).next());
+	});
+};
 var HttpCodes;
 (function(HttpCodes) {
 	HttpCodes[HttpCodes["OK"] = 200] = "OK";
@@ -15720,11 +15842,463 @@ var MediaTypes;
 (function(MediaTypes) {
 	MediaTypes["ApplicationJson"] = "application/json";
 })(MediaTypes || (MediaTypes = {}));
-HttpCodes.MovedPermanently, HttpCodes.ResourceMoved, HttpCodes.SeeOther, HttpCodes.TemporaryRedirect, HttpCodes.PermanentRedirect;
-HttpCodes.BadGateway, HttpCodes.ServiceUnavailable, HttpCodes.GatewayTimeout;
+const HttpRedirectCodes = [
+	HttpCodes.MovedPermanently,
+	HttpCodes.ResourceMoved,
+	HttpCodes.SeeOther,
+	HttpCodes.TemporaryRedirect,
+	HttpCodes.PermanentRedirect
+];
+const HttpResponseRetryCodes = [
+	HttpCodes.BadGateway,
+	HttpCodes.ServiceUnavailable,
+	HttpCodes.GatewayTimeout
+];
+const RetryableHttpVerbs = [
+	"OPTIONS",
+	"GET",
+	"DELETE",
+	"HEAD"
+];
+const ExponentialBackoffCeiling = 10;
+const ExponentialBackoffTimeSlice = 5;
+var HttpClientError = class HttpClientError extends Error {
+	constructor(message, statusCode) {
+		super(message);
+		this.name = "HttpClientError";
+		this.statusCode = statusCode;
+		Object.setPrototypeOf(this, HttpClientError.prototype);
+	}
+};
+var HttpClientResponse = class {
+	constructor(message) {
+		this.message = message;
+	}
+	readBody() {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return new Promise((resolve) => __awaiter$12(this, void 0, void 0, function* () {
+				let output = Buffer.alloc(0);
+				this.message.on("data", (chunk) => {
+					output = Buffer.concat([output, chunk]);
+				});
+				this.message.on("end", () => {
+					resolve(output.toString());
+				});
+			}));
+		});
+	}
+	readBodyBuffer() {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return new Promise((resolve) => __awaiter$12(this, void 0, void 0, function* () {
+				const chunks = [];
+				this.message.on("data", (chunk) => {
+					chunks.push(chunk);
+				});
+				this.message.on("end", () => {
+					resolve(Buffer.concat(chunks));
+				});
+			}));
+		});
+	}
+};
+var HttpClient = class {
+	constructor(userAgent, handlers, requestOptions) {
+		this._ignoreSslError = false;
+		this._allowRedirects = true;
+		this._allowRedirectDowngrade = false;
+		this._maxRedirects = 50;
+		this._allowRetries = false;
+		this._maxRetries = 1;
+		this._keepAlive = false;
+		this._disposed = false;
+		this.userAgent = this._getUserAgentWithOrchestrationId(userAgent);
+		this.handlers = handlers || [];
+		this.requestOptions = requestOptions;
+		if (requestOptions) {
+			if (requestOptions.ignoreSslError != null) this._ignoreSslError = requestOptions.ignoreSslError;
+			this._socketTimeout = requestOptions.socketTimeout;
+			if (requestOptions.allowRedirects != null) this._allowRedirects = requestOptions.allowRedirects;
+			if (requestOptions.allowRedirectDowngrade != null) this._allowRedirectDowngrade = requestOptions.allowRedirectDowngrade;
+			if (requestOptions.maxRedirects != null) this._maxRedirects = Math.max(requestOptions.maxRedirects, 0);
+			if (requestOptions.keepAlive != null) this._keepAlive = requestOptions.keepAlive;
+			if (requestOptions.allowRetries != null) this._allowRetries = requestOptions.allowRetries;
+			if (requestOptions.maxRetries != null) this._maxRetries = requestOptions.maxRetries;
+		}
+	}
+	options(requestUrl, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request("OPTIONS", requestUrl, null, additionalHeaders || {});
+		});
+	}
+	get(requestUrl, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request("GET", requestUrl, null, additionalHeaders || {});
+		});
+	}
+	del(requestUrl, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request("DELETE", requestUrl, null, additionalHeaders || {});
+		});
+	}
+	post(requestUrl, data, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request("POST", requestUrl, data, additionalHeaders || {});
+		});
+	}
+	patch(requestUrl, data, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request("PATCH", requestUrl, data, additionalHeaders || {});
+		});
+	}
+	put(requestUrl, data, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request("PUT", requestUrl, data, additionalHeaders || {});
+		});
+	}
+	head(requestUrl, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request("HEAD", requestUrl, null, additionalHeaders || {});
+		});
+	}
+	sendStream(verb, requestUrl, stream, additionalHeaders) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return this.request(verb, requestUrl, stream, additionalHeaders);
+		});
+	}
+	/**
+	* Gets a typed object from an endpoint
+	* Be aware that not found returns a null.  Other errors (4xx, 5xx) reject the promise
+	*/
+	getJson(requestUrl_1) {
+		return __awaiter$12(this, arguments, void 0, function* (requestUrl, additionalHeaders = {}) {
+			additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+			const res = yield this.get(requestUrl, additionalHeaders);
+			return this._processResponse(res, this.requestOptions);
+		});
+	}
+	postJson(requestUrl_1, obj_1) {
+		return __awaiter$12(this, arguments, void 0, function* (requestUrl, obj, additionalHeaders = {}) {
+			const data = JSON.stringify(obj, null, 2);
+			additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+			additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultContentTypeHeader(additionalHeaders, MediaTypes.ApplicationJson);
+			const res = yield this.post(requestUrl, data, additionalHeaders);
+			return this._processResponse(res, this.requestOptions);
+		});
+	}
+	putJson(requestUrl_1, obj_1) {
+		return __awaiter$12(this, arguments, void 0, function* (requestUrl, obj, additionalHeaders = {}) {
+			const data = JSON.stringify(obj, null, 2);
+			additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+			additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultContentTypeHeader(additionalHeaders, MediaTypes.ApplicationJson);
+			const res = yield this.put(requestUrl, data, additionalHeaders);
+			return this._processResponse(res, this.requestOptions);
+		});
+	}
+	patchJson(requestUrl_1, obj_1) {
+		return __awaiter$12(this, arguments, void 0, function* (requestUrl, obj, additionalHeaders = {}) {
+			const data = JSON.stringify(obj, null, 2);
+			additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+			additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultContentTypeHeader(additionalHeaders, MediaTypes.ApplicationJson);
+			const res = yield this.patch(requestUrl, data, additionalHeaders);
+			return this._processResponse(res, this.requestOptions);
+		});
+	}
+	/**
+	* Makes a raw http request.
+	* All other methods such as get, post, patch, and request ultimately call this.
+	* Prefer get, del, post and patch
+	*/
+	request(verb, requestUrl, data, headers) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			if (this._disposed) throw new Error("Client has already been disposed.");
+			const parsedUrl = new URL(requestUrl);
+			let info = this._prepareRequest(verb, parsedUrl, headers);
+			const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb) ? this._maxRetries + 1 : 1;
+			let numTries = 0;
+			let response;
+			do {
+				response = yield this.requestRaw(info, data);
+				if (response && response.message && response.message.statusCode === HttpCodes.Unauthorized) {
+					let authenticationHandler;
+					for (const handler of this.handlers) if (handler.canHandleAuthentication(response)) {
+						authenticationHandler = handler;
+						break;
+					}
+					if (authenticationHandler) return authenticationHandler.handleAuthentication(this, info, data);
+					else return response;
+				}
+				let redirectsRemaining = this._maxRedirects;
+				while (response.message.statusCode && HttpRedirectCodes.includes(response.message.statusCode) && this._allowRedirects && redirectsRemaining > 0) {
+					const redirectUrl = response.message.headers["location"];
+					if (!redirectUrl) break;
+					const parsedRedirectUrl = new URL(redirectUrl);
+					if (parsedUrl.protocol === "https:" && parsedUrl.protocol !== parsedRedirectUrl.protocol && !this._allowRedirectDowngrade) throw new Error("Redirect from HTTPS to HTTP protocol. This downgrade is not allowed for security reasons. If you want to allow this behavior, set the allowRedirectDowngrade option to true.");
+					yield response.readBody();
+					if (parsedRedirectUrl.hostname !== parsedUrl.hostname) {
+						for (const header in headers) if (header.toLowerCase() === "authorization") delete headers[header];
+					}
+					info = this._prepareRequest(verb, parsedRedirectUrl, headers);
+					response = yield this.requestRaw(info, data);
+					redirectsRemaining--;
+				}
+				if (!response.message.statusCode || !HttpResponseRetryCodes.includes(response.message.statusCode)) return response;
+				numTries += 1;
+				if (numTries < maxTries) {
+					yield response.readBody();
+					yield this._performExponentialBackoff(numTries);
+				}
+			} while (numTries < maxTries);
+			return response;
+		});
+	}
+	/**
+	* Needs to be called if keepAlive is set to true in request options.
+	*/
+	dispose() {
+		if (this._agent) this._agent.destroy();
+		this._disposed = true;
+	}
+	/**
+	* Raw request.
+	* @param info
+	* @param data
+	*/
+	requestRaw(info, data) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return new Promise((resolve, reject) => {
+				function callbackForResult(err, res) {
+					if (err) reject(err);
+					else if (!res) reject(/* @__PURE__ */ new Error("Unknown error"));
+					else resolve(res);
+				}
+				this.requestRawWithCallback(info, data, callbackForResult);
+			});
+		});
+	}
+	/**
+	* Raw request with callback.
+	* @param info
+	* @param data
+	* @param onResult
+	*/
+	requestRawWithCallback(info, data, onResult) {
+		if (typeof data === "string") {
+			if (!info.options.headers) info.options.headers = {};
+			info.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
+		}
+		let callbackCalled = false;
+		function handleResult(err, res) {
+			if (!callbackCalled) {
+				callbackCalled = true;
+				onResult(err, res);
+			}
+		}
+		const req = info.httpModule.request(info.options, (msg) => {
+			handleResult(void 0, new HttpClientResponse(msg));
+		});
+		let socket;
+		req.on("socket", (sock) => {
+			socket = sock;
+		});
+		req.setTimeout(this._socketTimeout || 3 * 6e4, () => {
+			if (socket) socket.end();
+			handleResult(/* @__PURE__ */ new Error(`Request timeout: ${info.options.path}`));
+		});
+		req.on("error", function(err) {
+			handleResult(err);
+		});
+		if (data && typeof data === "string") req.write(data, "utf8");
+		if (data && typeof data !== "string") {
+			data.on("close", function() {
+				req.end();
+			});
+			data.pipe(req);
+		} else req.end();
+	}
+	/**
+	* Gets an http agent. This function is useful when you need an http agent that handles
+	* routing through a proxy server - depending upon the url and proxy environment variables.
+	* @param serverUrl  The server URL where the request will be sent. For example, https://api.github.com
+	*/
+	getAgent(serverUrl) {
+		const parsedUrl = new URL(serverUrl);
+		return this._getAgent(parsedUrl);
+	}
+	getAgentDispatcher(serverUrl) {
+		const parsedUrl = new URL(serverUrl);
+		const proxyUrl = getProxyUrl(parsedUrl);
+		if (!(proxyUrl && proxyUrl.hostname)) return;
+		return this._getProxyAgentDispatcher(parsedUrl, proxyUrl);
+	}
+	_prepareRequest(method, requestUrl, headers) {
+		const info = {};
+		info.parsedUrl = requestUrl;
+		const usingSsl = info.parsedUrl.protocol === "https:";
+		info.httpModule = usingSsl ? https : http;
+		const defaultPort = usingSsl ? 443 : 80;
+		info.options = {};
+		info.options.host = info.parsedUrl.hostname;
+		info.options.port = info.parsedUrl.port ? parseInt(info.parsedUrl.port) : defaultPort;
+		info.options.path = (info.parsedUrl.pathname || "") + (info.parsedUrl.search || "");
+		info.options.method = method;
+		info.options.headers = this._mergeHeaders(headers);
+		if (this.userAgent != null) info.options.headers["user-agent"] = this.userAgent;
+		info.options.agent = this._getAgent(info.parsedUrl);
+		if (this.handlers) for (const handler of this.handlers) handler.prepareRequest(info.options);
+		return info;
+	}
+	_mergeHeaders(headers) {
+		if (this.requestOptions && this.requestOptions.headers) return Object.assign({}, lowercaseKeys(this.requestOptions.headers), lowercaseKeys(headers || {}));
+		return lowercaseKeys(headers || {});
+	}
+	/**
+	* Gets an existing header value or returns a default.
+	* Handles converting number header values to strings since HTTP headers must be strings.
+	* Note: This returns string | string[] since some headers can have multiple values.
+	* For headers that must always be a single string (like Content-Type), use the
+	* specialized _getExistingOrDefaultContentTypeHeader method instead.
+	*/
+	_getExistingOrDefaultHeader(additionalHeaders, header, _default) {
+		let clientHeader;
+		if (this.requestOptions && this.requestOptions.headers) {
+			const headerValue = lowercaseKeys(this.requestOptions.headers)[header];
+			if (headerValue) clientHeader = typeof headerValue === "number" ? headerValue.toString() : headerValue;
+		}
+		const additionalValue = additionalHeaders[header];
+		if (additionalValue !== void 0) return typeof additionalValue === "number" ? additionalValue.toString() : additionalValue;
+		if (clientHeader !== void 0) return clientHeader;
+		return _default;
+	}
+	/**
+	* Specialized version of _getExistingOrDefaultHeader for Content-Type header.
+	* Always returns a single string (not an array) since Content-Type should be a single value.
+	* Converts arrays to comma-separated strings and numbers to strings to ensure type safety.
+	* This was split from _getExistingOrDefaultHeader to provide stricter typing for callers
+	* that assign the result to places expecting a string (e.g., additionalHeaders[Headers.ContentType]).
+	*/
+	_getExistingOrDefaultContentTypeHeader(additionalHeaders, _default) {
+		let clientHeader;
+		if (this.requestOptions && this.requestOptions.headers) {
+			const headerValue = lowercaseKeys(this.requestOptions.headers)[Headers.ContentType];
+			if (headerValue) if (typeof headerValue === "number") clientHeader = String(headerValue);
+			else if (Array.isArray(headerValue)) clientHeader = headerValue.join(", ");
+			else clientHeader = headerValue;
+		}
+		const additionalValue = additionalHeaders[Headers.ContentType];
+		if (additionalValue !== void 0) if (typeof additionalValue === "number") return String(additionalValue);
+		else if (Array.isArray(additionalValue)) return additionalValue.join(", ");
+		else return additionalValue;
+		if (clientHeader !== void 0) return clientHeader;
+		return _default;
+	}
+	_getAgent(parsedUrl) {
+		let agent;
+		const proxyUrl = getProxyUrl(parsedUrl);
+		const useProxy = proxyUrl && proxyUrl.hostname;
+		if (this._keepAlive && useProxy) agent = this._proxyAgent;
+		if (!useProxy) agent = this._agent;
+		if (agent) return agent;
+		const usingSsl = parsedUrl.protocol === "https:";
+		let maxSockets = 100;
+		if (this.requestOptions) maxSockets = this.requestOptions.maxSockets || http.globalAgent.maxSockets;
+		if (proxyUrl && proxyUrl.hostname) {
+			const agentOptions = {
+				maxSockets,
+				keepAlive: this._keepAlive,
+				proxy: Object.assign(Object.assign({}, (proxyUrl.username || proxyUrl.password) && { proxyAuth: `${proxyUrl.username}:${proxyUrl.password}` }), {
+					host: proxyUrl.hostname,
+					port: proxyUrl.port
+				})
+			};
+			let tunnelAgent;
+			const overHttps = proxyUrl.protocol === "https:";
+			if (usingSsl) tunnelAgent = overHttps ? import_tunnel.httpsOverHttps : import_tunnel.httpsOverHttp;
+			else tunnelAgent = overHttps ? import_tunnel.httpOverHttps : import_tunnel.httpOverHttp;
+			agent = tunnelAgent(agentOptions);
+			this._proxyAgent = agent;
+		}
+		if (!agent) {
+			const options = {
+				keepAlive: this._keepAlive,
+				maxSockets
+			};
+			agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
+			this._agent = agent;
+		}
+		if (usingSsl && this._ignoreSslError) agent.options = Object.assign(agent.options || {}, { rejectUnauthorized: false });
+		return agent;
+	}
+	_getProxyAgentDispatcher(parsedUrl, proxyUrl) {
+		let proxyAgent;
+		if (this._keepAlive) proxyAgent = this._proxyAgentDispatcher;
+		if (proxyAgent) return proxyAgent;
+		const usingSsl = parsedUrl.protocol === "https:";
+		proxyAgent = new import_undici.ProxyAgent(Object.assign({
+			uri: proxyUrl.href,
+			pipelining: !this._keepAlive ? 0 : 1
+		}, (proxyUrl.username || proxyUrl.password) && { token: `Basic ${Buffer.from(`${proxyUrl.username}:${proxyUrl.password}`).toString("base64")}` }));
+		this._proxyAgentDispatcher = proxyAgent;
+		if (usingSsl && this._ignoreSslError) proxyAgent.options = Object.assign(proxyAgent.options.requestTls || {}, { rejectUnauthorized: false });
+		return proxyAgent;
+	}
+	_getUserAgentWithOrchestrationId(userAgent) {
+		const baseUserAgent = userAgent || "actions/http-client";
+		const orchId = process.env["ACTIONS_ORCHESTRATION_ID"];
+		if (orchId) return `${baseUserAgent} actions_orchestration_id/${orchId.replace(/[^a-z0-9_.-]/gi, "_")}`;
+		return baseUserAgent;
+	}
+	_performExponentialBackoff(retryNumber) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			retryNumber = Math.min(ExponentialBackoffCeiling, retryNumber);
+			const ms = ExponentialBackoffTimeSlice * Math.pow(2, retryNumber);
+			return new Promise((resolve) => setTimeout(() => resolve(), ms));
+		});
+	}
+	_processResponse(res, options) {
+		return __awaiter$12(this, void 0, void 0, function* () {
+			return new Promise((resolve, reject) => __awaiter$12(this, void 0, void 0, function* () {
+				const statusCode = res.message.statusCode || 0;
+				const response = {
+					statusCode,
+					result: null,
+					headers: {}
+				};
+				if (statusCode === HttpCodes.NotFound) resolve(response);
+				function dateTimeDeserializer(key, value) {
+					if (typeof value === "string") {
+						const a = new Date(value);
+						if (!isNaN(a.valueOf())) return a;
+					}
+					return value;
+				}
+				let obj;
+				let contents;
+				try {
+					contents = yield res.readBody();
+					if (contents && contents.length > 0) {
+						if (options && options.deserializeDates) obj = JSON.parse(contents, dateTimeDeserializer);
+						else obj = JSON.parse(contents);
+						response.result = obj;
+					}
+					response.headers = res.message.headers;
+				} catch (err) {}
+				if (statusCode > 299) {
+					let msg;
+					if (obj && obj.message) msg = obj.message;
+					else if (contents && contents.length > 0) msg = contents;
+					else msg = `Failed request: (${statusCode})`;
+					const err = new HttpClientError(msg, statusCode);
+					err.result = response.result;
+					reject(err);
+				} else resolve(response);
+			}));
+		});
+	}
+};
+const lowercaseKeys = (obj) => Object.keys(obj).reduce((c, k) => (c[k.toLowerCase()] = obj[k], c), {});
 //#endregion
 //#region node_modules/.pnpm/@actions+core@3.0.1/node_modules/@actions/core/lib/summary.js
-var __awaiter$6 = function(thisArg, _arguments, P, generator) {
+var __awaiter$9 = function(thisArg, _arguments, P, generator) {
 	function adopt(value) {
 		return value instanceof P ? value : new P(function(resolve) {
 			resolve(value);
@@ -15764,7 +16338,7 @@ var Summary = class {
 	* @returns step summary file path
 	*/
 	filePath() {
-		return __awaiter$6(this, void 0, void 0, function* () {
+		return __awaiter$9(this, void 0, void 0, function* () {
 			if (this._filePath) return this._filePath;
 			const pathFromEnv = process.env[SUMMARY_ENV_VAR];
 			if (!pathFromEnv) throw new Error(`Unable to find environment variable for $${SUMMARY_ENV_VAR}. Check if your runtime environment supports job summaries.`);
@@ -15799,7 +16373,7 @@ var Summary = class {
 	* @returns {Promise<Summary>} summary instance
 	*/
 	write(options) {
-		return __awaiter$6(this, void 0, void 0, function* () {
+		return __awaiter$9(this, void 0, void 0, function* () {
 			const overwrite = !!(options === null || options === void 0 ? void 0 : options.overwrite);
 			const filePath = yield this.filePath();
 			yield (overwrite ? writeFile : appendFile)(filePath, this._buffer, { encoding: "utf8" });
@@ -15812,7 +16386,7 @@ var Summary = class {
 	* @returns {Summary} summary instance
 	*/
 	clear() {
-		return __awaiter$6(this, void 0, void 0, function* () {
+		return __awaiter$9(this, void 0, void 0, function* () {
 			return this.emptyBuffer().write({ overwrite: true });
 		});
 	}
@@ -16007,7 +16581,7 @@ var Summary = class {
 new Summary();
 //#endregion
 //#region node_modules/.pnpm/@actions+io@3.0.2/node_modules/@actions/io/lib/io-util.js
-var __awaiter$5 = function(thisArg, _arguments, P, generator) {
+var __awaiter$8 = function(thisArg, _arguments, P, generator) {
 	function adopt(value) {
 		return value instanceof P ? value : new P(function(resolve) {
 			resolve(value);
@@ -16034,11 +16608,29 @@ var __awaiter$5 = function(thisArg, _arguments, P, generator) {
 		step((generator = generator.apply(thisArg, _arguments || [])).next());
 	});
 };
-const { chmod, copyFile, lstat, mkdir, open, readdir, rename, rm, rmdir, stat, symlink, unlink } = fs$1.promises;
-const IS_WINDOWS$1 = process.platform === "win32";
+const { chmod, copyFile: copyFile$1, lstat, mkdir, open, readdir, rename, rm, rmdir, stat, symlink, unlink } = fs$1.promises;
+const IS_WINDOWS$2 = process.platform === "win32";
+/**
+* Custom implementation of readlink to ensure Windows junctions
+* maintain trailing backslash for backward compatibility with Node.js < 24
+*
+* In Node.js 20, Windows junctions (directory symlinks) always returned paths
+* with trailing backslashes. Node.js 24 removed this behavior, which breaks
+* code that relied on this format for path operations.
+*
+* This implementation restores the Node 20 behavior by adding a trailing
+* backslash to all junction results on Windows.
+*/
+function readlink(fsPath) {
+	return __awaiter$8(this, void 0, void 0, function* () {
+		const result = yield fs$1.promises.readlink(fsPath);
+		if (IS_WINDOWS$2 && !result.endsWith("\\")) return `${result}\\`;
+		return result;
+	});
+}
 fs$1.constants.O_RDONLY;
 function exists(fsPath) {
-	return __awaiter$5(this, void 0, void 0, function* () {
+	return __awaiter$8(this, void 0, void 0, function* () {
 		try {
 			yield stat(fsPath);
 		} catch (err) {
@@ -16055,7 +16647,7 @@ function exists(fsPath) {
 function isRooted(p) {
 	p = normalizeSeparators(p);
 	if (!p) throw new Error("isRooted() parameter \"p\" cannot be empty");
-	if (IS_WINDOWS$1) return p.startsWith("\\") || /^[A-Z]:/i.test(p);
+	if (IS_WINDOWS$2) return p.startsWith("\\") || /^[A-Z]:/i.test(p);
 	return p.startsWith("/");
 }
 /**
@@ -16065,7 +16657,7 @@ function isRooted(p) {
 * @return if file exists and is executable, returns the file path. otherwise empty string.
 */
 function tryGetExecutablePath(filePath, extensions) {
-	return __awaiter$5(this, void 0, void 0, function* () {
+	return __awaiter$8(this, void 0, void 0, function* () {
 		let stats = void 0;
 		try {
 			stats = yield stat(filePath);
@@ -16073,7 +16665,7 @@ function tryGetExecutablePath(filePath, extensions) {
 			if (err.code !== "ENOENT") console.log(`Unexpected error attempting to determine if executable file exists '${filePath}': ${err}`);
 		}
 		if (stats && stats.isFile()) {
-			if (IS_WINDOWS$1) {
+			if (IS_WINDOWS$2) {
 				const upperExt = path$1.extname(filePath).toUpperCase();
 				if (extensions.some((validExt) => validExt.toUpperCase() === upperExt)) return filePath;
 			} else if (isUnixExecutable(stats)) return filePath;
@@ -16088,7 +16680,7 @@ function tryGetExecutablePath(filePath, extensions) {
 				if (err.code !== "ENOENT") console.log(`Unexpected error attempting to determine if executable file exists '${filePath}': ${err}`);
 			}
 			if (stats && stats.isFile()) {
-				if (IS_WINDOWS$1) {
+				if (IS_WINDOWS$2) {
 					try {
 						const directory = path$1.dirname(filePath);
 						const upperName = path$1.basename(filePath).toUpperCase();
@@ -16108,7 +16700,7 @@ function tryGetExecutablePath(filePath, extensions) {
 }
 function normalizeSeparators(p) {
 	p = p || "";
-	if (IS_WINDOWS$1) {
+	if (IS_WINDOWS$2) {
 		p = p.replace(/\//g, "\\");
 		return p.replace(/\\\\+/g, "\\");
 	}
@@ -16119,7 +16711,7 @@ function isUnixExecutable(stats) {
 }
 //#endregion
 //#region node_modules/.pnpm/@actions+io@3.0.2/node_modules/@actions/io/lib/io.js
-var __awaiter$4 = function(thisArg, _arguments, P, generator) {
+var __awaiter$7 = function(thisArg, _arguments, P, generator) {
 	function adopt(value) {
 		return value instanceof P ? value : new P(function(resolve) {
 			resolve(value);
@@ -16147,6 +16739,64 @@ var __awaiter$4 = function(thisArg, _arguments, P, generator) {
 	});
 };
 /**
+* Copies a file or folder.
+* Based off of shelljs - https://github.com/shelljs/shelljs/blob/9237f66c52e5daa40458f94f9565e18e8132f5a6/src/cp.js
+*
+* @param     source    source path
+* @param     dest      destination path
+* @param     options   optional. See CopyOptions.
+*/
+function cp(source_1, dest_1) {
+	return __awaiter$7(this, arguments, void 0, function* (source, dest, options = {}) {
+		const { force, recursive, copySourceDirectory } = readCopyOptions(options);
+		const destStat = (yield exists(dest)) ? yield stat(dest) : null;
+		if (destStat && destStat.isFile() && !force) return;
+		const newDest = destStat && destStat.isDirectory() && copySourceDirectory ? path$1.join(dest, path$1.basename(source)) : dest;
+		if (!(yield exists(source))) throw new Error(`no such file or directory: ${source}`);
+		if ((yield stat(source)).isDirectory()) if (!recursive) throw new Error(`Failed to copy. ${source} is a directory, but tried to copy without recursive flag.`);
+		else yield cpDirRecursive(source, newDest, 0, force);
+		else {
+			if (path$1.relative(source, newDest) === "") throw new Error(`'${newDest}' and '${source}' are the same file`);
+			yield copyFile(source, newDest, force);
+		}
+	});
+}
+/**
+* Remove a path recursively with force
+*
+* @param inputPath path to remove
+*/
+function rmRF(inputPath) {
+	return __awaiter$7(this, void 0, void 0, function* () {
+		if (IS_WINDOWS$2) {
+			if (/[*"<>|]/.test(inputPath)) throw new Error("File path must not contain `*`, `\"`, `<`, `>` or `|` on Windows");
+		}
+		try {
+			yield rm(inputPath, {
+				force: true,
+				maxRetries: 3,
+				recursive: true,
+				retryDelay: 300
+			});
+		} catch (err) {
+			throw new Error(`File was unable to be removed ${err}`);
+		}
+	});
+}
+/**
+* Make a directory.  Creates the full path with folders in between
+* Will throw if it fails
+*
+* @param   fsPath        path to create
+* @returns Promise<void>
+*/
+function mkdirP(fsPath) {
+	return __awaiter$7(this, void 0, void 0, function* () {
+		ok(fsPath, "a path argument must be provided");
+		yield mkdir(fsPath, { recursive: true });
+	});
+}
+/**
 * Returns path of a tool had the tool actually been invoked.  Resolves via paths.
 * If you check and the tool does not exist, it will throw.
 *
@@ -16155,11 +16805,11 @@ var __awaiter$4 = function(thisArg, _arguments, P, generator) {
 * @returns   Promise<string>   path to tool
 */
 function which(tool, check) {
-	return __awaiter$4(this, void 0, void 0, function* () {
+	return __awaiter$7(this, void 0, void 0, function* () {
 		if (!tool) throw new Error("parameter 'tool' is required");
 		if (check) {
 			const result = yield which(tool, false);
-			if (!result) if (IS_WINDOWS$1) throw new Error(`Unable to locate executable file: ${tool}. Please verify either the file path exists or the file can be found within a directory specified by the PATH environment variable. Also verify the file has a valid extension for an executable file.`);
+			if (!result) if (IS_WINDOWS$2) throw new Error(`Unable to locate executable file: ${tool}. Please verify either the file path exists or the file can be found within a directory specified by the PATH environment variable. Also verify the file has a valid extension for an executable file.`);
 			else throw new Error(`Unable to locate executable file: ${tool}. Please verify either the file path exists or the file can be found within a directory specified by the PATH environment variable. Also check the file mode to verify the file is executable.`);
 			return result;
 		}
@@ -16174,10 +16824,10 @@ function which(tool, check) {
 * @returns   Promise<string[]>  the paths of the tool
 */
 function findInPath(tool) {
-	return __awaiter$4(this, void 0, void 0, function* () {
+	return __awaiter$7(this, void 0, void 0, function* () {
 		if (!tool) throw new Error("parameter 'tool' is required");
 		const extensions = [];
-		if (IS_WINDOWS$1 && process.env["PATHEXT"]) {
+		if (IS_WINDOWS$2 && process.env["PATHEXT"]) {
 			for (const extension of process.env["PATHEXT"].split(path$1.delimiter)) if (extension) extensions.push(extension);
 		}
 		if (isRooted(tool)) {
@@ -16198,9 +16848,47 @@ function findInPath(tool) {
 		return matches;
 	});
 }
+function readCopyOptions(options) {
+	return {
+		force: options.force == null ? true : options.force,
+		recursive: Boolean(options.recursive),
+		copySourceDirectory: options.copySourceDirectory == null ? true : Boolean(options.copySourceDirectory)
+	};
+}
+function cpDirRecursive(sourceDir, destDir, currentDepth, force) {
+	return __awaiter$7(this, void 0, void 0, function* () {
+		if (currentDepth >= 255) return;
+		currentDepth++;
+		yield mkdirP(destDir);
+		const files = yield readdir(sourceDir);
+		for (const fileName of files) {
+			const srcFile = `${sourceDir}/${fileName}`;
+			const destFile = `${destDir}/${fileName}`;
+			if ((yield lstat(srcFile)).isDirectory()) yield cpDirRecursive(srcFile, destFile, currentDepth, force);
+			else yield copyFile(srcFile, destFile, force);
+		}
+		yield chmod(destDir, (yield stat(sourceDir)).mode);
+	});
+}
+function copyFile(srcFile, destFile, force) {
+	return __awaiter$7(this, void 0, void 0, function* () {
+		if ((yield lstat(srcFile)).isSymbolicLink()) {
+			try {
+				yield lstat(destFile);
+				yield unlink(destFile);
+			} catch (e) {
+				if (e.code === "EPERM") {
+					yield chmod(destFile, "0666");
+					yield unlink(destFile);
+				}
+			}
+			yield symlink(yield readlink(srcFile), destFile, IS_WINDOWS$2 ? "junction" : null);
+		} else if (!(yield exists(destFile)) || force) yield copyFile$1(srcFile, destFile);
+	});
+}
 //#endregion
 //#region node_modules/.pnpm/@actions+exec@3.0.0/node_modules/@actions/exec/lib/toolrunner.js
-var __awaiter$3 = function(thisArg, _arguments, P, generator) {
+var __awaiter$6 = function(thisArg, _arguments, P, generator) {
 	function adopt(value) {
 		return value instanceof P ? value : new P(function(resolve) {
 			resolve(value);
@@ -16227,7 +16915,7 @@ var __awaiter$3 = function(thisArg, _arguments, P, generator) {
 		step((generator = generator.apply(thisArg, _arguments || [])).next());
 	});
 };
-const IS_WINDOWS = process.platform === "win32";
+const IS_WINDOWS$1 = process.platform === "win32";
 var ToolRunner = class extends events.EventEmitter {
 	constructor(toolPath, args, options) {
 		super();
@@ -16243,7 +16931,7 @@ var ToolRunner = class extends events.EventEmitter {
 		const toolPath = this._getSpawnFileName();
 		const args = this._getSpawnArgs(options);
 		let cmd = noPrefix ? "" : "[command]";
-		if (IS_WINDOWS) if (this._isCmdFile()) {
+		if (IS_WINDOWS$1) if (this._isCmdFile()) {
 			cmd += toolPath;
 			for (const a of args) cmd += ` ${a}`;
 		} else if (options.windowsVerbatimArguments) {
@@ -16275,13 +16963,13 @@ var ToolRunner = class extends events.EventEmitter {
 		}
 	}
 	_getSpawnFileName() {
-		if (IS_WINDOWS) {
+		if (IS_WINDOWS$1) {
 			if (this._isCmdFile()) return process.env["COMSPEC"] || "cmd.exe";
 		}
 		return this.toolPath;
 	}
 	_getSpawnArgs(options) {
-		if (IS_WINDOWS) {
+		if (IS_WINDOWS$1) {
 			if (this._isCmdFile()) {
 				let argline = `/D /S /C "${this._windowsQuoteCmdArg(this.toolPath)}`;
 				for (const a of this.args) {
@@ -16398,10 +17086,10 @@ var ToolRunner = class extends events.EventEmitter {
 	* @returns   number
 	*/
 	exec() {
-		return __awaiter$3(this, void 0, void 0, function* () {
-			if (!isRooted(this.toolPath) && (this.toolPath.includes("/") || IS_WINDOWS && this.toolPath.includes("\\"))) this.toolPath = path$1.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
+		return __awaiter$6(this, void 0, void 0, function* () {
+			if (!isRooted(this.toolPath) && (this.toolPath.includes("/") || IS_WINDOWS$1 && this.toolPath.includes("\\"))) this.toolPath = path$1.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
 			this.toolPath = yield which(this.toolPath, true);
-			return new Promise((resolve, reject) => __awaiter$3(this, void 0, void 0, function* () {
+			return new Promise((resolve, reject) => __awaiter$6(this, void 0, void 0, function* () {
 				this._debug(`exec tool: ${this.toolPath}`);
 				this._debug("arguments:");
 				for (const arg of this.args) this._debug(`   ${arg}`);
@@ -16557,7 +17245,7 @@ var ExecState = class ExecState extends events.EventEmitter {
 };
 //#endregion
 //#region node_modules/.pnpm/@actions+exec@3.0.0/node_modules/@actions/exec/lib/exec.js
-var __awaiter$2 = function(thisArg, _arguments, P, generator) {
+var __awaiter$5 = function(thisArg, _arguments, P, generator) {
 	function adopt(value) {
 		return value instanceof P ? value : new P(function(resolve) {
 			resolve(value);
@@ -16595,7 +17283,7 @@ var __awaiter$2 = function(thisArg, _arguments, P, generator) {
 * @returns   Promise<number>    exit code
 */
 function exec(commandLine, args, options) {
-	return __awaiter$2(this, void 0, void 0, function* () {
+	return __awaiter$5(this, void 0, void 0, function* () {
 		const commandArgs = argStringToArray(commandLine);
 		if (commandArgs.length === 0) throw new Error(`Parameter 'commandLine' cannot be null or empty.`);
 		const toolPath = commandArgs[0];
@@ -16644,6 +17332,19 @@ function setFailed(message) {
 	error(message);
 }
 /**
+* Gets whether Actions Step Debug is on or not
+*/
+function isDebug() {
+	return process.env["RUNNER_DEBUG"] === "1";
+}
+/**
+* Writes debug message to user log
+* @param message debug message
+*/
+function debug(message) {
+	issueCommand("debug", {}, message);
+}
+/**
 * Adds an error issue
 * @param message error issue message. Errors will be converted to string via toString()
 * @param properties optional properties to add to the annotation.
@@ -16659,2253 +17360,1762 @@ function info(message) {
 	process.stdout.write(message + os$2.EOL);
 }
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/constants.js
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/internal/constants.js
 var require_constants = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SEMVER_SPEC_VERSION = "2.0.0";
+	const MAX_LENGTH = 256;
+	const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991;
 	module.exports = {
-		LOCHDR: 30,
-		LOCSIG: 67324752,
-		LOCVER: 4,
-		LOCFLG: 6,
-		LOCHOW: 8,
-		LOCTIM: 10,
-		LOCCRC: 14,
-		LOCSIZ: 18,
-		LOCLEN: 22,
-		LOCNAM: 26,
-		LOCEXT: 28,
-		EXTSIG: 134695760,
-		EXTHDR: 16,
-		EXTCRC: 4,
-		EXTSIZ: 8,
-		EXTLEN: 12,
-		CENHDR: 46,
-		CENSIG: 33639248,
-		CENVEM: 4,
-		CENVER: 6,
-		CENFLG: 8,
-		CENHOW: 10,
-		CENTIM: 12,
-		CENCRC: 16,
-		CENSIZ: 20,
-		CENLEN: 24,
-		CENNAM: 28,
-		CENEXT: 30,
-		CENCOM: 32,
-		CENDSK: 34,
-		CENATT: 36,
-		CENATX: 38,
-		CENOFF: 42,
-		ENDHDR: 22,
-		ENDSIG: 101010256,
-		ENDSUB: 8,
-		ENDTOT: 10,
-		ENDSIZ: 12,
-		ENDOFF: 16,
-		ENDCOM: 20,
-		END64HDR: 20,
-		END64SIG: 117853008,
-		END64START: 4,
-		END64OFF: 8,
-		END64NUMDISKS: 16,
-		ZIP64SIG: 101075792,
-		ZIP64HDR: 56,
-		ZIP64LEAD: 12,
-		ZIP64SIZE: 4,
-		ZIP64VEM: 12,
-		ZIP64VER: 14,
-		ZIP64DSK: 16,
-		ZIP64DSKDIR: 20,
-		ZIP64SUB: 24,
-		ZIP64TOT: 32,
-		ZIP64SIZB: 40,
-		ZIP64OFF: 48,
-		ZIP64EXTRA: 56,
-		STORED: 0,
-		SHRUNK: 1,
-		REDUCED1: 2,
-		REDUCED2: 3,
-		REDUCED3: 4,
-		REDUCED4: 5,
-		IMPLODED: 6,
-		DEFLATED: 8,
-		ENHANCED_DEFLATED: 9,
-		PKWARE: 10,
-		BZIP2: 12,
-		LZMA: 14,
-		IBM_TERSE: 18,
-		IBM_LZ77: 19,
-		AES_ENCRYPT: 99,
-		FLG_ENC: 1,
-		FLG_COMP1: 2,
-		FLG_COMP2: 4,
-		FLG_DESC: 8,
-		FLG_ENH: 16,
-		FLG_PATCH: 32,
-		FLG_STR: 64,
-		FLG_EFS: 2048,
-		FLG_MSK: 4096,
-		FILE: 2,
-		BUFFER: 1,
-		NONE: 0,
-		EF_ID: 0,
-		EF_SIZE: 2,
-		ID_ZIP64: 1,
-		ID_AVINFO: 7,
-		ID_PFS: 8,
-		ID_OS2: 9,
-		ID_NTFS: 10,
-		ID_OPENVMS: 12,
-		ID_UNIX: 13,
-		ID_FORK: 14,
-		ID_PATCH: 15,
-		ID_X509_PKCS7: 20,
-		ID_X509_CERTID_F: 21,
-		ID_X509_CERTID_C: 22,
-		ID_STRONGENC: 23,
-		ID_RECORD_MGT: 24,
-		ID_X509_PKCS7_RL: 25,
-		ID_IBM1: 101,
-		ID_IBM2: 102,
-		ID_POSZIP: 18064,
-		EF_ZIP64_OR_32: 4294967295,
-		EF_ZIP64_OR_16: 65535,
-		EF_ZIP64_SUNCOMP: 0,
-		EF_ZIP64_SCOMP: 8,
-		EF_ZIP64_RHO: 16,
-		EF_ZIP64_DSN: 24
+		MAX_LENGTH,
+		MAX_SAFE_COMPONENT_LENGTH: 16,
+		MAX_SAFE_BUILD_LENGTH: MAX_LENGTH - 6,
+		MAX_SAFE_INTEGER,
+		RELEASE_TYPES: [
+			"major",
+			"premajor",
+			"minor",
+			"preminor",
+			"patch",
+			"prepatch",
+			"prerelease"
+		],
+		SEMVER_SPEC_VERSION,
+		FLAG_INCLUDE_PRERELEASE: 1,
+		FLAG_LOOSE: 2
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/errors.js
-var require_errors = /* @__PURE__ */ __commonJSMin(((exports) => {
-	const errors = {
-		INVALID_LOC: "Invalid LOC header (bad signature)",
-		INVALID_CEN: "Invalid CEN header (bad signature)",
-		INVALID_END: "Invalid END header (bad signature)",
-		DESCRIPTOR_NOT_EXIST: "No descriptor present",
-		DESCRIPTOR_UNKNOWN: "Unknown descriptor format",
-		DESCRIPTOR_FAULTY: "Descriptor data is malformed",
-		NO_DATA: "Nothing to decompress",
-		BAD_CRC: "CRC32 checksum failed {0}",
-		FILE_IN_THE_WAY: "There is a file in the way: {0}",
-		UNKNOWN_METHOD: "Invalid/unsupported compression method",
-		AVAIL_DATA: "inflate::Available inflate data did not terminate",
-		INVALID_DISTANCE: "inflate::Invalid literal/length or distance code in fixed or dynamic block",
-		TO_MANY_CODES: "inflate::Dynamic block code description: too many length or distance codes",
-		INVALID_REPEAT_LEN: "inflate::Dynamic block code description: repeat more than specified lengths",
-		INVALID_REPEAT_FIRST: "inflate::Dynamic block code description: repeat lengths with no first length",
-		INCOMPLETE_CODES: "inflate::Dynamic block code description: code lengths codes incomplete",
-		INVALID_DYN_DISTANCE: "inflate::Dynamic block code description: invalid distance code lengths",
-		INVALID_CODES_LEN: "inflate::Dynamic block code description: invalid literal/length code lengths",
-		INVALID_STORE_BLOCK: "inflate::Stored block length did not match one's complement",
-		INVALID_BLOCK_TYPE: "inflate::Invalid block type (type == 3)",
-		CANT_EXTRACT_FILE: "Could not extract the file",
-		CANT_OVERRIDE: "Target file already exists",
-		DISK_ENTRY_TOO_LARGE: "Number of disk entries is too large",
-		NO_ZIP: "No zip file was loaded",
-		NO_ENTRY: "Entry doesn't exist",
-		DIRECTORY_CONTENT_ERROR: "A directory cannot have content",
-		FILE_NOT_FOUND: "File not found: \"{0}\"",
-		NOT_IMPLEMENTED: "Not implemented",
-		INVALID_FILENAME: "Invalid filename",
-		INVALID_FORMAT: "Invalid or unsupported zip format. No END header found",
-		INVALID_PASS_PARAM: "Incompatible password parameter",
-		WRONG_PASSWORD: "Wrong Password",
-		COMMENT_TOO_LONG: "Comment is too long",
-		EXTRA_FIELD_PARSE_ERROR: "Extra field parsing error"
-	};
-	function E(message) {
-		return function(...args) {
-			if (args.length) message = message.replace(/\{(\d)\}/g, (_, n) => args[n] || "");
-			return /* @__PURE__ */ new Error("ADM-ZIP: " + message);
-		};
-	}
-	for (const msg of Object.keys(errors)) exports[msg] = E(errors[msg]);
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/internal/debug.js
+var require_debug = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	module.exports = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/utils.js
-var require_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const fsystem = __require("fs");
-	const pth$2 = __require("path");
-	const Constants = require_constants();
-	const Errors = require_errors();
-	const isWin = typeof process === "object" && "win32" === process.platform;
-	const is_Obj = (obj) => typeof obj === "object" && obj !== null;
-	const crcTable = new Uint32Array(256).map((t, c) => {
-		for (let k = 0; k < 8; k++) if ((c & 1) !== 0) c = 3988292384 ^ c >>> 1;
-		else c >>>= 1;
-		return c >>> 0;
-	});
-	function Utils(opts) {
-		this.sep = pth$2.sep;
-		this.fs = fsystem;
-		if (is_Obj(opts)) {
-			if (is_Obj(opts.fs) && typeof opts.fs.statSync === "function") this.fs = opts.fs;
-		}
-	}
-	module.exports = Utils;
-	Utils.prototype.makeDir = function(folder) {
-		const self = this;
-		function mkdirSync(fpath) {
-			let resolvedPath = fpath.split(self.sep)[0];
-			fpath.split(self.sep).forEach(function(name) {
-				if (!name || name.substr(-1, 1) === ":") return;
-				resolvedPath += self.sep + name;
-				var stat;
-				try {
-					stat = self.fs.statSync(resolvedPath);
-				} catch (e) {
-					if (e.message && e.message.startsWith("ENOENT")) self.fs.mkdirSync(resolvedPath);
-					else throw e;
-				}
-				if (stat && stat.isFile()) throw Errors.FILE_IN_THE_WAY(`"${resolvedPath}"`);
-			});
-		}
-		mkdirSync(folder);
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/internal/re.js
+var require_re = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const { MAX_SAFE_COMPONENT_LENGTH, MAX_SAFE_BUILD_LENGTH, MAX_LENGTH } = require_constants();
+	const debug = require_debug();
+	exports = module.exports = {};
+	const re = exports.re = [];
+	const safeRe = exports.safeRe = [];
+	const src = exports.src = [];
+	const safeSrc = exports.safeSrc = [];
+	const t = exports.t = {};
+	let R = 0;
+	const LETTERDASHNUMBER = "[a-zA-Z0-9-]";
+	const safeRegexReplacements = [
+		["\\s", 1],
+		["\\d", MAX_LENGTH],
+		[LETTERDASHNUMBER, MAX_SAFE_BUILD_LENGTH]
+	];
+	const makeSafeRegex = (value) => {
+		for (const [token, max] of safeRegexReplacements) value = value.split(`${token}*`).join(`${token}{0,${max}}`).split(`${token}+`).join(`${token}{1,${max}}`);
+		return value;
 	};
-	Utils.prototype.writeFileTo = function(path, content, overwrite, attr) {
-		const self = this;
-		if (self.fs.existsSync(path)) {
-			if (!overwrite) return false;
-			if (self.fs.statSync(path).isDirectory()) return false;
-		}
-		var folder = pth$2.dirname(path);
-		if (!self.fs.existsSync(folder)) self.makeDir(folder);
-		var fd;
-		try {
-			fd = self.fs.openSync(path, "w", 438);
-		} catch (e) {
-			self.fs.chmodSync(path, 438);
-			fd = self.fs.openSync(path, "w", 438);
-		}
-		if (fd) try {
-			self.fs.writeSync(fd, content, 0, content.length, 0);
-		} finally {
-			self.fs.closeSync(fd);
-		}
-		self.fs.chmodSync(path, attr || 438);
-		return true;
+	const createToken = (name, value, isGlobal) => {
+		const safe = makeSafeRegex(value);
+		const index = R++;
+		debug(name, index, value);
+		t[name] = index;
+		src[index] = value;
+		safeSrc[index] = safe;
+		re[index] = new RegExp(value, isGlobal ? "g" : void 0);
+		safeRe[index] = new RegExp(safe, isGlobal ? "g" : void 0);
 	};
-	Utils.prototype.writeFileToAsync = function(path, content, overwrite, attr, callback) {
-		if (typeof attr === "function") {
-			callback = attr;
-			attr = void 0;
-		}
-		const self = this;
-		self.fs.exists(path, function(exist) {
-			if (exist && !overwrite) return callback(false);
-			self.fs.stat(path, function(err, stat) {
-				if (exist && stat.isDirectory()) return callback(false);
-				var folder = pth$2.dirname(path);
-				self.fs.exists(folder, function(exists) {
-					if (!exists) self.makeDir(folder);
-					self.fs.open(path, "w", 438, function(err, fd) {
-						if (err) self.fs.chmod(path, 438, function() {
-							self.fs.open(path, "w", 438, function(err, fd) {
-								self.fs.write(fd, content, 0, content.length, 0, function() {
-									self.fs.close(fd, function() {
-										self.fs.chmod(path, attr || 438, function() {
-											callback(true);
-										});
-									});
-								});
-							});
-						});
-						else if (fd) self.fs.write(fd, content, 0, content.length, 0, function() {
-							self.fs.close(fd, function() {
-								self.fs.chmod(path, attr || 438, function() {
-									callback(true);
-								});
-							});
-						});
-						else self.fs.chmod(path, attr || 438, function() {
-							callback(true);
-						});
-					});
-				});
-			});
-		});
-	};
-	Utils.prototype.findFiles = function(path) {
-		const self = this;
-		function findSync(dir, pattern, recursive) {
-			if (typeof pattern === "boolean") {
-				recursive = pattern;
-				pattern = void 0;
-			}
-			let files = [];
-			self.fs.readdirSync(dir).forEach(function(file) {
-				const path = pth$2.join(dir, file);
-				const stat = self.fs.statSync(path);
-				if (!pattern || pattern.test(path)) files.push(pth$2.normalize(path) + (stat.isDirectory() ? self.sep : ""));
-				if (stat.isDirectory() && recursive) files = files.concat(findSync(path, pattern, recursive));
-			});
-			return files;
-		}
-		return findSync(path, void 0, true);
-	};
-	/**
-	* Callback for showing if everything was done.
-	*
-	* @callback filelistCallback
-	* @param {Error} err - Error object
-	* @param {string[]} list - was request fully completed
-	*/
-	/**
-	*
-	* @param {string} dir
-	* @param {filelistCallback} cb
-	*/
-	Utils.prototype.findFilesAsync = function(dir, cb) {
-		const self = this;
-		let results = [];
-		self.fs.readdir(dir, function(err, list) {
-			if (err) return cb(err);
-			let list_length = list.length;
-			if (!list_length) return cb(null, results);
-			list.forEach(function(file) {
-				file = pth$2.join(dir, file);
-				self.fs.stat(file, function(err, stat) {
-					if (err) return cb(err);
-					if (stat) {
-						results.push(pth$2.normalize(file) + (stat.isDirectory() ? self.sep : ""));
-						if (stat.isDirectory()) self.findFilesAsync(file, function(err, res) {
-							if (err) return cb(err);
-							results = results.concat(res);
-							if (!--list_length) cb(null, results);
-						});
-						else if (!--list_length) cb(null, results);
-					}
-				});
-			});
-		});
-	};
-	Utils.prototype.getAttributes = function() {};
-	Utils.prototype.setAttributes = function() {};
-	Utils.crc32update = function(crc, byte) {
-		return crcTable[(crc ^ byte) & 255] ^ crc >>> 8;
-	};
-	Utils.crc32 = function(buf) {
-		if (typeof buf === "string") buf = Buffer.from(buf, "utf8");
-		let len = buf.length;
-		let crc = -1;
-		for (let off = 0; off < len;) crc = Utils.crc32update(crc, buf[off++]);
-		return ~crc >>> 0;
-	};
-	Utils.methodToString = function(method) {
-		switch (method) {
-			case Constants.STORED: return "STORED (" + method + ")";
-			case Constants.DEFLATED: return "DEFLATED (" + method + ")";
-			default: return "UNSUPPORTED (" + method + ")";
-		}
-	};
-	/**
-	* removes ".." style path elements
-	* @param {string} path - fixable path
-	* @returns string - fixed filepath
-	*/
-	Utils.canonical = function(path) {
-		if (!path) return "";
-		const safeSuffix = pth$2.posix.normalize("/" + path.split("\\").join("/"));
-		return pth$2.join(".", safeSuffix);
-	};
-	/**
-	* fix file names in achive
-	* @param {string} path - fixable path
-	* @returns string - fixed filepath
-	*/
-	Utils.zipnamefix = function(path) {
-		if (!path) return "";
-		const safeSuffix = pth$2.posix.normalize("/" + path.split("\\").join("/"));
-		return pth$2.posix.join(".", safeSuffix);
-	};
-	/**
-	*
-	* @param {Array} arr
-	* @param {function} callback
-	* @returns
-	*/
-	Utils.findLast = function(arr, callback) {
-		if (!Array.isArray(arr)) throw new TypeError("arr is not array");
-		const len = arr.length >>> 0;
-		for (let i = len - 1; i >= 0; i--) if (callback(arr[i], i, arr)) return arr[i];
-	};
-	Utils.sanitize = function(prefix, name) {
-		prefix = pth$2.resolve(pth$2.normalize(prefix));
-		var parts = name.split("/");
-		for (var i = 0, l = parts.length; i < l; i++) {
-			var path = pth$2.normalize(pth$2.join(prefix, parts.slice(i, l).join(pth$2.sep)));
-			if (path.indexOf(prefix) === 0) return path;
-		}
-		return pth$2.normalize(pth$2.join(prefix, pth$2.basename(name)));
-	};
-	Utils.toBuffer = function toBuffer(input, encoder) {
-		if (Buffer.isBuffer(input)) return input;
-		else if (input instanceof Uint8Array) return Buffer.from(input);
-		else return typeof input === "string" ? encoder(input) : Buffer.alloc(0);
-	};
-	Utils.readBigUInt64LE = function(buffer, index) {
-		const lo = buffer.readUInt32LE(index);
-		return buffer.readUInt32LE(index + 4) * 4294967296 + lo;
-	};
-	Utils.fromDOS2Date = function(val) {
-		return new Date((val >> 25 & 127) + 1980, Math.max((val >> 21 & 15) - 1, 0), Math.max(val >> 16 & 31, 1), val >> 11 & 31, val >> 5 & 63, (val & 31) << 1);
-	};
-	Utils.fromDate2DOS = function(val) {
-		let date = 0;
-		let time = 0;
-		if (val.getFullYear() > 1979) {
-			date = (val.getFullYear() - 1980 & 127) << 9 | val.getMonth() + 1 << 5 | val.getDate();
-			time = val.getHours() << 11 | val.getMinutes() << 5 | val.getSeconds() >> 1;
-		}
-		return date << 16 | time;
-	};
-	Utils.isWin = isWin;
-	Utils.crcTable = crcTable;
+	createToken("NUMERICIDENTIFIER", "0|[1-9]\\d*");
+	createToken("NUMERICIDENTIFIERLOOSE", "\\d+");
+	createToken("NONNUMERICIDENTIFIER", `\\d*[a-zA-Z-]${LETTERDASHNUMBER}*`);
+	createToken("MAINVERSION", `(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})`);
+	createToken("MAINVERSIONLOOSE", `(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})`);
+	createToken("PRERELEASEIDENTIFIER", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIER]})`);
+	createToken("PRERELEASEIDENTIFIERLOOSE", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIERLOOSE]})`);
+	createToken("PRERELEASE", `(?:-(${src[t.PRERELEASEIDENTIFIER]}(?:\\.${src[t.PRERELEASEIDENTIFIER]})*))`);
+	createToken("PRERELEASELOOSE", `(?:-?(${src[t.PRERELEASEIDENTIFIERLOOSE]}(?:\\.${src[t.PRERELEASEIDENTIFIERLOOSE]})*))`);
+	createToken("BUILDIDENTIFIER", `${LETTERDASHNUMBER}+`);
+	createToken("BUILD", `(?:\\+(${src[t.BUILDIDENTIFIER]}(?:\\.${src[t.BUILDIDENTIFIER]})*))`);
+	createToken("FULLPLAIN", `v?${src[t.MAINVERSION]}${src[t.PRERELEASE]}?${src[t.BUILD]}?`);
+	createToken("FULL", `^${src[t.FULLPLAIN]}$`);
+	createToken("LOOSEPLAIN", `[v=\\s]*${src[t.MAINVERSIONLOOSE]}${src[t.PRERELEASELOOSE]}?${src[t.BUILD]}?`);
+	createToken("LOOSE", `^${src[t.LOOSEPLAIN]}$`);
+	createToken("GTLT", "((?:<|>)?=?)");
+	createToken("XRANGEIDENTIFIERLOOSE", `${src[t.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`);
+	createToken("XRANGEIDENTIFIER", `${src[t.NUMERICIDENTIFIER]}|x|X|\\*`);
+	createToken("XRANGEPLAIN", `[v=\\s]*(${src[t.XRANGEIDENTIFIER]})(?:\\.(${src[t.XRANGEIDENTIFIER]})(?:\\.(${src[t.XRANGEIDENTIFIER]})(?:${src[t.PRERELEASE]})?${src[t.BUILD]}?)?)?`);
+	createToken("XRANGEPLAINLOOSE", `[v=\\s]*(${src[t.XRANGEIDENTIFIERLOOSE]})(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})(?:${src[t.PRERELEASELOOSE]})?${src[t.BUILD]}?)?)?`);
+	createToken("XRANGE", `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAIN]}$`);
+	createToken("XRANGELOOSE", `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAINLOOSE]}$`);
+	createToken("COERCEPLAIN", `(^|[^\\d])(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}})(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?`);
+	createToken("COERCE", `${src[t.COERCEPLAIN]}(?:$|[^\\d])`);
+	createToken("COERCEFULL", src[t.COERCEPLAIN] + `(?:${src[t.PRERELEASE]})?(?:${src[t.BUILD]})?(?:$|[^\\d])`);
+	createToken("COERCERTL", src[t.COERCE], true);
+	createToken("COERCERTLFULL", src[t.COERCEFULL], true);
+	createToken("LONETILDE", "(?:~>?)");
+	createToken("TILDETRIM", `(\\s*)${src[t.LONETILDE]}\\s+`, true);
+	exports.tildeTrimReplace = "$1~";
+	createToken("TILDE", `^${src[t.LONETILDE]}${src[t.XRANGEPLAIN]}$`);
+	createToken("TILDELOOSE", `^${src[t.LONETILDE]}${src[t.XRANGEPLAINLOOSE]}$`);
+	createToken("LONECARET", "(?:\\^)");
+	createToken("CARETTRIM", `(\\s*)${src[t.LONECARET]}\\s+`, true);
+	exports.caretTrimReplace = "$1^";
+	createToken("CARET", `^${src[t.LONECARET]}${src[t.XRANGEPLAIN]}$`);
+	createToken("CARETLOOSE", `^${src[t.LONECARET]}${src[t.XRANGEPLAINLOOSE]}$`);
+	createToken("COMPARATORLOOSE", `^${src[t.GTLT]}\\s*(${src[t.LOOSEPLAIN]})$|^$`);
+	createToken("COMPARATOR", `^${src[t.GTLT]}\\s*(${src[t.FULLPLAIN]})$|^$`);
+	createToken("COMPARATORTRIM", `(\\s*)${src[t.GTLT]}\\s*(${src[t.LOOSEPLAIN]}|${src[t.XRANGEPLAIN]})`, true);
+	exports.comparatorTrimReplace = "$1$2$3";
+	createToken("HYPHENRANGE", `^\\s*(${src[t.XRANGEPLAIN]})\\s+-\\s+(${src[t.XRANGEPLAIN]})\\s*$`);
+	createToken("HYPHENRANGELOOSE", `^\\s*(${src[t.XRANGEPLAINLOOSE]})\\s+-\\s+(${src[t.XRANGEPLAINLOOSE]})\\s*$`);
+	createToken("STAR", "(<|>)?=?\\s*\\*");
+	createToken("GTE0", "^\\s*>=\\s*0\\.0\\.0\\s*$");
+	createToken("GTE0PRE", "^\\s*>=\\s*0\\.0\\.0-0\\s*$");
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/fattr.js
-var require_fattr = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const pth$1 = __require("path");
-	module.exports = function(path, { fs }) {
-		var _path = path || "", _obj = newAttr(), _stat = null;
-		function newAttr() {
-			return {
-				directory: false,
-				readonly: false,
-				hidden: false,
-				executable: false,
-				mtime: 0,
-				atime: 0
-			};
-		}
-		if (_path && fs.existsSync(_path)) {
-			_stat = fs.statSync(_path);
-			_obj.directory = _stat.isDirectory();
-			_obj.mtime = _stat.mtime;
-			_obj.atime = _stat.atime;
-			_obj.executable = (73 & _stat.mode) !== 0;
-			_obj.readonly = (128 & _stat.mode) === 0;
-			_obj.hidden = pth$1.basename(_path)[0] === ".";
-		} else console.warn("Invalid path: " + _path);
-		return {
-			get directory() {
-				return _obj.directory;
-			},
-			get readOnly() {
-				return _obj.readonly;
-			},
-			get hidden() {
-				return _obj.hidden;
-			},
-			get mtime() {
-				return _obj.mtime;
-			},
-			get atime() {
-				return _obj.atime;
-			},
-			get executable() {
-				return _obj.executable;
-			},
-			decodeAttributes: function() {},
-			encodeAttributes: function() {},
-			toJSON: function() {
-				return {
-					path: _path,
-					isDirectory: _obj.directory,
-					isReadOnly: _obj.readonly,
-					isHidden: _obj.hidden,
-					isExecutable: _obj.executable,
-					mTime: _obj.mtime,
-					aTime: _obj.atime
-				};
-			},
-			toString: function() {
-				return JSON.stringify(this.toJSON(), null, "	");
-			}
-		};
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/internal/parse-options.js
+var require_parse_options = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const looseOption = Object.freeze({ loose: true });
+	const emptyOpts = Object.freeze({});
+	const parseOptions = (options) => {
+		if (!options) return emptyOpts;
+		if (typeof options !== "object") return looseOption;
+		return options;
 	};
+	module.exports = parseOptions;
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/decoder.js
-var require_decoder = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/internal/identifiers.js
+var require_identifiers = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const numeric = /^[0-9]+$/;
+	const compareIdentifiers = (a, b) => {
+		if (typeof a === "number" && typeof b === "number") return a === b ? 0 : a < b ? -1 : 1;
+		const anum = numeric.test(a);
+		const bnum = numeric.test(b);
+		if (anum && bnum) {
+			a = +a;
+			b = +b;
+		}
+		return a === b ? 0 : anum && !bnum ? -1 : bnum && !anum ? 1 : a < b ? -1 : 1;
+	};
+	const rcompareIdentifiers = (a, b) => compareIdentifiers(b, a);
 	module.exports = {
-		efs: true,
-		encode: (data) => Buffer.from(data, "utf8"),
-		decode: (data) => data.toString("utf8")
+		compareIdentifiers,
+		rcompareIdentifiers
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/util/index.js
-var require_util = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	module.exports = require_utils();
-	module.exports.Constants = require_constants();
-	module.exports.Errors = require_errors();
-	module.exports.FileAttr = require_fattr();
-	module.exports.decoder = require_decoder();
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/headers/entryHeader.js
-var require_entryHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	var Utils = require_util(), Constants = Utils.Constants;
-	module.exports = function() {
-		var _verMade = 20, _version = 10, _flags = 0, _method = 0, _time = 0, _crc = 0, _compressedSize = 0, _size = 0, _fnameLen = 0, _extraLen = 0, _comLen = 0, _diskStart = 0, _inattr = 0, _attr = 0, _offset = 0;
-		_verMade |= Utils.isWin ? 2560 : 768;
-		_flags |= Constants.FLG_EFS;
-		const _localHeader = { extraLen: 0 };
-		const uint32 = (val) => Math.max(0, val) >>> 0;
-		const uint8 = (val) => Math.max(0, val) & 255;
-		_time = Utils.fromDate2DOS(/* @__PURE__ */ new Date());
-		return {
-			get made() {
-				return _verMade;
-			},
-			set made(val) {
-				_verMade = val;
-			},
-			get version() {
-				return _version;
-			},
-			set version(val) {
-				_version = val;
-			},
-			get flags() {
-				return _flags;
-			},
-			set flags(val) {
-				_flags = val;
-			},
-			get flags_efs() {
-				return (_flags & Constants.FLG_EFS) > 0;
-			},
-			set flags_efs(val) {
-				if (val) _flags |= Constants.FLG_EFS;
-				else _flags &= ~Constants.FLG_EFS;
-			},
-			get flags_desc() {
-				return (_flags & Constants.FLG_DESC) > 0;
-			},
-			set flags_desc(val) {
-				if (val) _flags |= Constants.FLG_DESC;
-				else _flags &= ~Constants.FLG_DESC;
-			},
-			get method() {
-				return _method;
-			},
-			set method(val) {
-				switch (val) {
-					case Constants.STORED: this.version = 10;
-					case Constants.DEFLATED:
-					default: this.version = 20;
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/classes/semver.js
+var require_semver$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const debug = require_debug();
+	const { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
+	const { safeRe: re, t } = require_re();
+	const parseOptions = require_parse_options();
+	const { compareIdentifiers } = require_identifiers();
+	module.exports = class SemVer {
+		constructor(version, options) {
+			options = parseOptions(options);
+			if (version instanceof SemVer) if (version.loose === !!options.loose && version.includePrerelease === !!options.includePrerelease) return version;
+			else version = version.version;
+			else if (typeof version !== "string") throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version}".`);
+			if (version.length > MAX_LENGTH) throw new TypeError(`version is longer than ${MAX_LENGTH} characters`);
+			debug("SemVer", version, options);
+			this.options = options;
+			this.loose = !!options.loose;
+			this.includePrerelease = !!options.includePrerelease;
+			const m = version.trim().match(options.loose ? re[t.LOOSE] : re[t.FULL]);
+			if (!m) throw new TypeError(`Invalid Version: ${version}`);
+			this.raw = version;
+			this.major = +m[1];
+			this.minor = +m[2];
+			this.patch = +m[3];
+			if (this.major > MAX_SAFE_INTEGER || this.major < 0) throw new TypeError("Invalid major version");
+			if (this.minor > MAX_SAFE_INTEGER || this.minor < 0) throw new TypeError("Invalid minor version");
+			if (this.patch > MAX_SAFE_INTEGER || this.patch < 0) throw new TypeError("Invalid patch version");
+			if (!m[4]) this.prerelease = [];
+			else this.prerelease = m[4].split(".").map((id) => {
+				if (/^[0-9]+$/.test(id)) {
+					const num = +id;
+					if (num >= 0 && num < MAX_SAFE_INTEGER) return num;
 				}
-				_method = val;
-			},
-			get time() {
-				return Utils.fromDOS2Date(this.timeval);
-			},
-			set time(val) {
-				val = new Date(val);
-				this.timeval = Utils.fromDate2DOS(val);
-			},
-			get timeval() {
-				return _time;
-			},
-			set timeval(val) {
-				_time = uint32(val);
-			},
-			get timeHighByte() {
-				return uint8(_time >>> 8);
-			},
-			get crc() {
-				return _crc;
-			},
-			set crc(val) {
-				_crc = uint32(val);
-			},
-			get compressedSize() {
-				return _compressedSize;
-			},
-			set compressedSize(val) {
-				_compressedSize = uint32(val);
-			},
-			get size() {
-				return _size;
-			},
-			set size(val) {
-				_size = uint32(val);
-			},
-			get fileNameLength() {
-				return _fnameLen;
-			},
-			set fileNameLength(val) {
-				_fnameLen = val;
-			},
-			get extraLength() {
-				return _extraLen;
-			},
-			set extraLength(val) {
-				_extraLen = val;
-			},
-			get extraLocalLength() {
-				return _localHeader.extraLen;
-			},
-			set extraLocalLength(val) {
-				_localHeader.extraLen = val;
-			},
-			get commentLength() {
-				return _comLen;
-			},
-			set commentLength(val) {
-				_comLen = val;
-			},
-			get diskNumStart() {
-				return _diskStart;
-			},
-			set diskNumStart(val) {
-				_diskStart = uint32(val);
-			},
-			get inAttr() {
-				return _inattr;
-			},
-			set inAttr(val) {
-				_inattr = uint32(val);
-			},
-			get attr() {
-				return _attr;
-			},
-			set attr(val) {
-				_attr = uint32(val);
-			},
-			get fileAttr() {
-				return (_attr || 0) >> 16 & 4095;
-			},
-			get offset() {
-				return _offset;
-			},
-			set offset(val) {
-				_offset = uint32(val);
-			},
-			get encrypted() {
-				return (_flags & Constants.FLG_ENC) === Constants.FLG_ENC;
-			},
-			get centralHeaderSize() {
-				return Constants.CENHDR + _fnameLen + _extraLen + _comLen;
-			},
-			get realDataOffset() {
-				return _offset + Constants.LOCHDR + _localHeader.fnameLen + _localHeader.extraLen;
-			},
-			get localHeader() {
-				return _localHeader;
-			},
-			loadLocalHeaderFromBinary: function(input) {
-				var data = input.slice(_offset, _offset + Constants.LOCHDR);
-				if (data.readUInt32LE(0) !== Constants.LOCSIG) throw Utils.Errors.INVALID_LOC();
-				_localHeader.version = data.readUInt16LE(Constants.LOCVER);
-				_localHeader.flags = data.readUInt16LE(Constants.LOCFLG);
-				_localHeader.flags_desc = (_localHeader.flags & Constants.FLG_DESC) > 0;
-				_localHeader.method = data.readUInt16LE(Constants.LOCHOW);
-				_localHeader.time = data.readUInt32LE(Constants.LOCTIM);
-				_localHeader.crc = data.readUInt32LE(Constants.LOCCRC);
-				_localHeader.compressedSize = data.readUInt32LE(Constants.LOCSIZ);
-				_localHeader.size = data.readUInt32LE(Constants.LOCLEN);
-				_localHeader.fnameLen = data.readUInt16LE(Constants.LOCNAM);
-				_localHeader.extraLen = data.readUInt16LE(Constants.LOCEXT);
-				const extraStart = _offset + Constants.LOCHDR + _localHeader.fnameLen;
-				const extraEnd = extraStart + _localHeader.extraLen;
-				return input.slice(extraStart, extraEnd);
-			},
-			loadFromBinary: function(data) {
-				if (data.length !== Constants.CENHDR || data.readUInt32LE(0) !== Constants.CENSIG) throw Utils.Errors.INVALID_CEN();
-				_verMade = data.readUInt16LE(Constants.CENVEM);
-				_version = data.readUInt16LE(Constants.CENVER);
-				_flags = data.readUInt16LE(Constants.CENFLG);
-				_method = data.readUInt16LE(Constants.CENHOW);
-				_time = data.readUInt32LE(Constants.CENTIM);
-				_crc = data.readUInt32LE(Constants.CENCRC);
-				_compressedSize = data.readUInt32LE(Constants.CENSIZ);
-				_size = data.readUInt32LE(Constants.CENLEN);
-				_fnameLen = data.readUInt16LE(Constants.CENNAM);
-				_extraLen = data.readUInt16LE(Constants.CENEXT);
-				_comLen = data.readUInt16LE(Constants.CENCOM);
-				_diskStart = data.readUInt16LE(Constants.CENDSK);
-				_inattr = data.readUInt16LE(Constants.CENATT);
-				_attr = data.readUInt32LE(Constants.CENATX);
-				_offset = data.readUInt32LE(Constants.CENOFF);
-			},
-			localHeaderToBinary: function() {
-				var data = Buffer.alloc(Constants.LOCHDR);
-				data.writeUInt32LE(Constants.LOCSIG, 0);
-				data.writeUInt16LE(_version, Constants.LOCVER);
-				data.writeUInt16LE(_flags, Constants.LOCFLG);
-				data.writeUInt16LE(_method, Constants.LOCHOW);
-				data.writeUInt32LE(_time, Constants.LOCTIM);
-				data.writeUInt32LE(_crc, Constants.LOCCRC);
-				data.writeUInt32LE(_compressedSize, Constants.LOCSIZ);
-				data.writeUInt32LE(_size, Constants.LOCLEN);
-				data.writeUInt16LE(_fnameLen, Constants.LOCNAM);
-				data.writeUInt16LE(_localHeader.extraLen, Constants.LOCEXT);
-				return data;
-			},
-			centralHeaderToBinary: function() {
-				var data = Buffer.alloc(Constants.CENHDR + _fnameLen + _extraLen + _comLen);
-				data.writeUInt32LE(Constants.CENSIG, 0);
-				data.writeUInt16LE(_verMade, Constants.CENVEM);
-				data.writeUInt16LE(_version, Constants.CENVER);
-				data.writeUInt16LE(_flags, Constants.CENFLG);
-				data.writeUInt16LE(_method, Constants.CENHOW);
-				data.writeUInt32LE(_time, Constants.CENTIM);
-				data.writeUInt32LE(_crc, Constants.CENCRC);
-				data.writeUInt32LE(_compressedSize, Constants.CENSIZ);
-				data.writeUInt32LE(_size, Constants.CENLEN);
-				data.writeUInt16LE(_fnameLen, Constants.CENNAM);
-				data.writeUInt16LE(_extraLen, Constants.CENEXT);
-				data.writeUInt16LE(_comLen, Constants.CENCOM);
-				data.writeUInt16LE(_diskStart, Constants.CENDSK);
-				data.writeUInt16LE(_inattr, Constants.CENATT);
-				data.writeUInt32LE(_attr, Constants.CENATX);
-				data.writeUInt32LE(_offset, Constants.CENOFF);
-				return data;
-			},
-			toJSON: function() {
-				const bytes = function(nr) {
-					return nr + " bytes";
-				};
-				return {
-					made: _verMade,
-					version: _version,
-					flags: _flags,
-					method: Utils.methodToString(_method),
-					time: this.time,
-					crc: "0x" + _crc.toString(16).toUpperCase(),
-					compressedSize: bytes(_compressedSize),
-					size: bytes(_size),
-					fileNameLength: bytes(_fnameLen),
-					extraLength: bytes(_extraLen),
-					commentLength: bytes(_comLen),
-					diskNumStart: _diskStart,
-					inAttr: _inattr,
-					attr: _attr,
-					offset: _offset,
-					centralHeaderSize: bytes(Constants.CENHDR + _fnameLen + _extraLen + _comLen)
-				};
-			},
-			toString: function() {
-				return JSON.stringify(this.toJSON(), null, "	");
+				return id;
+			});
+			this.build = m[5] ? m[5].split(".") : [];
+			this.format();
+		}
+		format() {
+			this.version = `${this.major}.${this.minor}.${this.patch}`;
+			if (this.prerelease.length) this.version += `-${this.prerelease.join(".")}`;
+			return this.version;
+		}
+		toString() {
+			return this.version;
+		}
+		compare(other) {
+			debug("SemVer.compare", this.version, this.options, other);
+			if (!(other instanceof SemVer)) {
+				if (typeof other === "string" && other === this.version) return 0;
+				other = new SemVer(other, this.options);
 			}
-		};
-	};
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/headers/mainHeader.js
-var require_mainHeader = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	var Utils = require_util(), Constants = Utils.Constants;
-	module.exports = function() {
-		var _volumeEntries = 0, _totalEntries = 0, _size = 0, _offset = 0, _commentLength = 0;
-		return {
-			get diskEntries() {
-				return _volumeEntries;
-			},
-			set diskEntries(val) {
-				_volumeEntries = _totalEntries = val;
-			},
-			get totalEntries() {
-				return _totalEntries;
-			},
-			set totalEntries(val) {
-				_totalEntries = _volumeEntries = val;
-			},
-			get size() {
-				return _size;
-			},
-			set size(val) {
-				_size = val;
-			},
-			get offset() {
-				return _offset;
-			},
-			set offset(val) {
-				_offset = val;
-			},
-			get commentLength() {
-				return _commentLength;
-			},
-			set commentLength(val) {
-				_commentLength = val;
-			},
-			get mainHeaderSize() {
-				return Constants.ENDHDR + _commentLength;
-			},
-			loadFromBinary: function(data) {
-				if ((data.length !== Constants.ENDHDR || data.readUInt32LE(0) !== Constants.ENDSIG) && (data.length < Constants.ZIP64HDR || data.readUInt32LE(0) !== Constants.ZIP64SIG)) throw Utils.Errors.INVALID_END();
-				if (data.readUInt32LE(0) === Constants.ENDSIG) {
-					_volumeEntries = data.readUInt16LE(Constants.ENDSUB);
-					_totalEntries = data.readUInt16LE(Constants.ENDTOT);
-					_size = data.readUInt32LE(Constants.ENDSIZ);
-					_offset = data.readUInt32LE(Constants.ENDOFF);
-					_commentLength = data.readUInt16LE(Constants.ENDCOM);
-				} else {
-					_volumeEntries = Utils.readBigUInt64LE(data, Constants.ZIP64SUB);
-					_totalEntries = Utils.readBigUInt64LE(data, Constants.ZIP64TOT);
-					_size = Utils.readBigUInt64LE(data, Constants.ZIP64SIZE);
-					_offset = Utils.readBigUInt64LE(data, Constants.ZIP64OFF);
-					_commentLength = 0;
+			if (other.version === this.version) return 0;
+			return this.compareMain(other) || this.comparePre(other);
+		}
+		compareMain(other) {
+			if (!(other instanceof SemVer)) other = new SemVer(other, this.options);
+			if (this.major < other.major) return -1;
+			if (this.major > other.major) return 1;
+			if (this.minor < other.minor) return -1;
+			if (this.minor > other.minor) return 1;
+			if (this.patch < other.patch) return -1;
+			if (this.patch > other.patch) return 1;
+			return 0;
+		}
+		comparePre(other) {
+			if (!(other instanceof SemVer)) other = new SemVer(other, this.options);
+			if (this.prerelease.length && !other.prerelease.length) return -1;
+			else if (!this.prerelease.length && other.prerelease.length) return 1;
+			else if (!this.prerelease.length && !other.prerelease.length) return 0;
+			let i = 0;
+			do {
+				const a = this.prerelease[i];
+				const b = other.prerelease[i];
+				debug("prerelease compare", i, a, b);
+				if (a === void 0 && b === void 0) return 0;
+				else if (b === void 0) return 1;
+				else if (a === void 0) return -1;
+				else if (a === b) continue;
+				else return compareIdentifiers(a, b);
+			} while (++i);
+		}
+		compareBuild(other) {
+			if (!(other instanceof SemVer)) other = new SemVer(other, this.options);
+			let i = 0;
+			do {
+				const a = this.build[i];
+				const b = other.build[i];
+				debug("build compare", i, a, b);
+				if (a === void 0 && b === void 0) return 0;
+				else if (b === void 0) return 1;
+				else if (a === void 0) return -1;
+				else if (a === b) continue;
+				else return compareIdentifiers(a, b);
+			} while (++i);
+		}
+		inc(release, identifier, identifierBase) {
+			if (release.startsWith("pre")) {
+				if (!identifier && identifierBase === false) throw new Error("invalid increment argument: identifier is empty");
+				if (identifier) {
+					const match = `-${identifier}`.match(this.options.loose ? re[t.PRERELEASELOOSE] : re[t.PRERELEASE]);
+					if (!match || match[1] !== identifier) throw new Error(`invalid identifier: ${identifier}`);
 				}
-			},
-			toBinary: function() {
-				var b = Buffer.alloc(Constants.ENDHDR + _commentLength);
-				b.writeUInt32LE(Constants.ENDSIG, 0);
-				b.writeUInt32LE(0, 4);
-				b.writeUInt16LE(_volumeEntries, Constants.ENDSUB);
-				b.writeUInt16LE(_totalEntries, Constants.ENDTOT);
-				b.writeUInt32LE(_size, Constants.ENDSIZ);
-				b.writeUInt32LE(_offset, Constants.ENDOFF);
-				b.writeUInt16LE(_commentLength, Constants.ENDCOM);
-				b.fill(" ", Constants.ENDHDR);
-				return b;
-			},
-			toJSON: function() {
-				const offset = function(nr, len) {
-					let offs = nr.toString(16).toUpperCase();
-					while (offs.length < len) offs = "0" + offs;
-					return "0x" + offs;
-				};
-				return {
-					diskEntries: _volumeEntries,
-					totalEntries: _totalEntries,
-					size: _size + " bytes",
-					offset: offset(_offset, 4),
-					commentLength: _commentLength
-				};
-			},
-			toString: function() {
-				return JSON.stringify(this.toJSON(), null, "	");
 			}
-		};
-	};
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/headers/index.js
-var require_headers = /* @__PURE__ */ __commonJSMin(((exports) => {
-	exports.EntryHeader = require_entryHeader();
-	exports.MainHeader = require_mainHeader();
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/deflater.js
-var require_deflater = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	module.exports = function(inbuf) {
-		var zlib = __require("zlib");
-		var opts = { chunkSize: (parseInt(inbuf.length / 1024) + 1) * 1024 };
-		return {
-			deflate: function() {
-				return zlib.deflateRawSync(inbuf, opts);
-			},
-			deflateAsync: function(callback) {
-				var tmp = zlib.createDeflateRaw(opts), parts = [], total = 0;
-				tmp.on("data", function(data) {
-					parts.push(data);
-					total += data.length;
-				});
-				tmp.on("end", function() {
-					var buf = Buffer.alloc(total), written = 0;
-					buf.fill(0);
-					for (var i = 0; i < parts.length; i++) {
-						var part = parts[i];
-						part.copy(buf, written);
-						written += part.length;
-					}
-					callback && callback(buf);
-				});
-				tmp.end(inbuf);
-			}
-		};
-	};
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/inflater.js
-var require_inflater = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const version = +(process.versions ? process.versions.node : "").split(".")[0] || 0;
-	module.exports = function(inbuf, expectedLength) {
-		var zlib = __require("zlib");
-		const option = version >= 15 && expectedLength > 0 ? { maxOutputLength: expectedLength } : {};
-		return {
-			inflate: function() {
-				return zlib.inflateRawSync(inbuf, option);
-			},
-			inflateAsync: function(callback) {
-				var tmp = zlib.createInflateRaw(option), parts = [], total = 0;
-				tmp.on("data", function(data) {
-					parts.push(data);
-					total += data.length;
-				});
-				tmp.on("end", function() {
-					var buf = Buffer.alloc(total), written = 0;
-					buf.fill(0);
-					for (var i = 0; i < parts.length; i++) {
-						var part = parts[i];
-						part.copy(buf, written);
-						written += part.length;
-					}
-					callback && callback(buf);
-				});
-				tmp.end(inbuf);
-			}
-		};
-	};
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/zipcrypto.js
-var require_zipcrypto = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const { randomFillSync } = __require("crypto");
-	const Errors = require_errors();
-	const crctable = new Uint32Array(256).map((t, crc) => {
-		for (let j = 0; j < 8; j++) if (0 !== (crc & 1)) crc = crc >>> 1 ^ 3988292384;
-		else crc >>>= 1;
-		return crc >>> 0;
-	});
-	const uMul = (a, b) => Math.imul(a, b) >>> 0;
-	const crc32update = (pCrc32, bval) => {
-		return crctable[(pCrc32 ^ bval) & 255] ^ pCrc32 >>> 8;
-	};
-	const genSalt = () => {
-		if ("function" === typeof randomFillSync) return randomFillSync(Buffer.alloc(12));
-		else return genSalt.node();
-	};
-	genSalt.node = () => {
-		const salt = Buffer.alloc(12);
-		const len = salt.length;
-		for (let i = 0; i < len; i++) salt[i] = Math.random() * 256 & 255;
-		return salt;
-	};
-	const config = { genSalt };
-	function Initkeys(pw) {
-		const pass = Buffer.isBuffer(pw) ? pw : Buffer.from(pw);
-		this.keys = new Uint32Array([
-			305419896,
-			591751049,
-			878082192
-		]);
-		for (let i = 0; i < pass.length; i++) this.updateKeys(pass[i]);
-	}
-	Initkeys.prototype.updateKeys = function(byteValue) {
-		const keys = this.keys;
-		keys[0] = crc32update(keys[0], byteValue);
-		keys[1] += keys[0] & 255;
-		keys[1] = uMul(keys[1], 134775813) + 1;
-		keys[2] = crc32update(keys[2], keys[1] >>> 24);
-		return byteValue;
-	};
-	Initkeys.prototype.next = function() {
-		const k = (this.keys[2] | 2) >>> 0;
-		return uMul(k, k ^ 1) >> 8 & 255;
-	};
-	function make_decrypter(pwd) {
-		const keys = new Initkeys(pwd);
-		return function(data) {
-			const result = Buffer.alloc(data.length);
-			let pos = 0;
-			for (let c of data) result[pos++] = keys.updateKeys(c ^ keys.next());
-			return result;
-		};
-	}
-	function make_encrypter(pwd) {
-		const keys = new Initkeys(pwd);
-		return function(data, result, pos = 0) {
-			if (!result) result = Buffer.alloc(data.length);
-			for (let c of data) {
-				const k = keys.next();
-				result[pos++] = c ^ k;
-				keys.updateKeys(c);
-			}
-			return result;
-		};
-	}
-	function decrypt(data, header, pwd) {
-		if (!data || !Buffer.isBuffer(data) || data.length < 12) return Buffer.alloc(0);
-		const decrypter = make_decrypter(pwd);
-		const salt = decrypter(data.slice(0, 12));
-		const verifyByte = (header.flags & 8) === 8 ? header.timeHighByte : header.crc >>> 24;
-		if (salt[11] !== verifyByte) throw Errors.WRONG_PASSWORD();
-		return decrypter(data.slice(12));
-	}
-	function _salter(data) {
-		if (Buffer.isBuffer(data) && data.length >= 12) config.genSalt = function() {
-			return data.slice(0, 12);
-		};
-		else if (data === "node") config.genSalt = genSalt.node;
-		else config.genSalt = genSalt;
-	}
-	function encrypt(data, header, pwd, oldlike = false) {
-		if (data == null) data = Buffer.alloc(0);
-		if (!Buffer.isBuffer(data)) data = Buffer.from(data.toString());
-		const encrypter = make_encrypter(pwd);
-		const salt = config.genSalt();
-		salt[11] = header.crc >>> 24 & 255;
-		if (oldlike) salt[10] = header.crc >>> 16 & 255;
-		const result = Buffer.alloc(data.length + 12);
-		encrypter(salt, result);
-		return encrypter(data, result, 12);
-	}
-	module.exports = {
-		decrypt,
-		encrypt,
-		_salter
-	};
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/methods/index.js
-var require_methods = /* @__PURE__ */ __commonJSMin(((exports) => {
-	exports.Deflater = require_deflater();
-	exports.Inflater = require_inflater();
-	exports.ZipCrypto = require_zipcrypto();
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/zipEntry.js
-var require_zipEntry = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	var Utils = require_util(), Headers = require_headers(), Constants = Utils.Constants, Methods = require_methods();
-	module.exports = function(options, input) {
-		var _centralHeader = new Headers.EntryHeader(), _entryName = Buffer.alloc(0), _comment = Buffer.alloc(0), _isDirectory = false, uncompressedData = null, _extra = Buffer.alloc(0), _extralocal = Buffer.alloc(0), _efs = true;
-		const opts = options;
-		const decoder = typeof opts.decoder === "object" ? opts.decoder : Utils.decoder;
-		_efs = decoder.hasOwnProperty("efs") ? decoder.efs : false;
-		function getCompressedDataFromZip() {
-			if (!input || !(input instanceof Uint8Array)) return Buffer.alloc(0);
-			_extralocal = _centralHeader.loadLocalHeaderFromBinary(input);
-			return input.slice(_centralHeader.realDataOffset, _centralHeader.realDataOffset + _centralHeader.compressedSize);
-		}
-		function crc32OK(data) {
-			if (!_centralHeader.flags_desc && !_centralHeader.localHeader.flags_desc) {
-				if (Utils.crc32(data) !== _centralHeader.localHeader.crc) return false;
-			} else {
-				const descriptor = {};
-				const dataEndOffset = _centralHeader.realDataOffset + _centralHeader.compressedSize;
-				if (input.readUInt32LE(dataEndOffset) == Constants.LOCSIG || input.readUInt32LE(dataEndOffset) == Constants.CENSIG) throw Utils.Errors.DESCRIPTOR_NOT_EXIST();
-				if (input.readUInt32LE(dataEndOffset) == Constants.EXTSIG) {
-					descriptor.crc = input.readUInt32LE(dataEndOffset + Constants.EXTCRC);
-					descriptor.compressedSize = input.readUInt32LE(dataEndOffset + Constants.EXTSIZ);
-					descriptor.size = input.readUInt32LE(dataEndOffset + Constants.EXTLEN);
-				} else if (input.readUInt16LE(dataEndOffset + 12) === 19280) {
-					descriptor.crc = input.readUInt32LE(dataEndOffset + Constants.EXTCRC - 4);
-					descriptor.compressedSize = input.readUInt32LE(dataEndOffset + Constants.EXTSIZ - 4);
-					descriptor.size = input.readUInt32LE(dataEndOffset + Constants.EXTLEN - 4);
-				} else throw Utils.Errors.DESCRIPTOR_UNKNOWN();
-				if (descriptor.compressedSize !== _centralHeader.compressedSize || descriptor.size !== _centralHeader.size || descriptor.crc !== _centralHeader.crc) throw Utils.Errors.DESCRIPTOR_FAULTY();
-				if (Utils.crc32(data) !== descriptor.crc) return false;
-			}
-			return true;
-		}
-		function decompress(async, callback, pass) {
-			if (typeof callback === "undefined" && typeof async === "string") {
-				pass = async;
-				async = void 0;
-			}
-			if (_isDirectory) {
-				if (async && callback) callback(Buffer.alloc(0), Utils.Errors.DIRECTORY_CONTENT_ERROR());
-				return Buffer.alloc(0);
-			}
-			var compressedData = getCompressedDataFromZip();
-			if (compressedData.length === 0) {
-				if (async && callback) callback(compressedData);
-				return compressedData;
-			}
-			if (_centralHeader.encrypted) {
-				if ("string" !== typeof pass && !Buffer.isBuffer(pass)) throw Utils.Errors.INVALID_PASS_PARAM();
-				compressedData = Methods.ZipCrypto.decrypt(compressedData, _centralHeader, pass);
-			}
-			var data = Buffer.alloc(_centralHeader.size);
-			switch (_centralHeader.method) {
-				case Utils.Constants.STORED:
-					compressedData.copy(data);
-					if (!crc32OK(data)) {
-						if (async && callback) callback(data, Utils.Errors.BAD_CRC());
-						throw Utils.Errors.BAD_CRC();
-					} else {
-						if (async && callback) callback(data);
-						return data;
-					}
-				case Utils.Constants.DEFLATED:
-					var inflater = new Methods.Inflater(compressedData, _centralHeader.size);
-					if (!async) {
-						inflater.inflate(data).copy(data, 0);
-						if (!crc32OK(data)) throw Utils.Errors.BAD_CRC(`"${decoder.decode(_entryName)}"`);
-						return data;
-					} else inflater.inflateAsync(function(result) {
-						result.copy(result, 0);
-						if (callback) if (!crc32OK(result)) callback(result, Utils.Errors.BAD_CRC());
-						else callback(result);
-					});
+			switch (release) {
+				case "premajor":
+					this.prerelease.length = 0;
+					this.patch = 0;
+					this.minor = 0;
+					this.major++;
+					this.inc("pre", identifier, identifierBase);
 					break;
-				default:
-					if (async && callback) callback(Buffer.alloc(0), Utils.Errors.UNKNOWN_METHOD());
-					throw Utils.Errors.UNKNOWN_METHOD();
-			}
-		}
-		function compress(async, callback) {
-			if ((!uncompressedData || !uncompressedData.length) && Buffer.isBuffer(input)) {
-				if (async && callback) callback(getCompressedDataFromZip());
-				return getCompressedDataFromZip();
-			}
-			if (uncompressedData.length && !_isDirectory) {
-				var compressedData;
-				switch (_centralHeader.method) {
-					case Utils.Constants.STORED:
-						_centralHeader.compressedSize = _centralHeader.size;
-						compressedData = Buffer.alloc(uncompressedData.length);
-						uncompressedData.copy(compressedData);
-						if (async && callback) callback(compressedData);
-						return compressedData;
-					default:
-					case Utils.Constants.DEFLATED:
-						var deflater = new Methods.Deflater(uncompressedData);
-						if (!async) {
-							var deflated = deflater.deflate();
-							_centralHeader.compressedSize = deflated.length;
-							return deflated;
-						} else deflater.deflateAsync(function(data) {
-							compressedData = Buffer.alloc(data.length);
-							_centralHeader.compressedSize = data.length;
-							data.copy(compressedData);
-							callback && callback(compressedData);
-						});
-						deflater = null;
-						break;
-				}
-			} else if (async && callback) callback(Buffer.alloc(0));
-			else return Buffer.alloc(0);
-		}
-		function readUInt64LE(buffer, offset) {
-			return Utils.readBigUInt64LE(buffer, offset);
-		}
-		function parseExtra(data) {
-			try {
-				var offset = 0;
-				var signature, size, part;
-				while (offset + 4 < data.length) {
-					signature = data.readUInt16LE(offset);
-					offset += 2;
-					size = data.readUInt16LE(offset);
-					offset += 2;
-					part = data.slice(offset, offset + size);
-					offset += size;
-					if (Constants.ID_ZIP64 === signature) parseZip64ExtendedInformation(part);
-				}
-			} catch (error) {
-				throw Utils.Errors.EXTRA_FIELD_PARSE_ERROR();
-			}
-		}
-		function parseZip64ExtendedInformation(data) {
-			var size, compressedSize, offset, diskNumStart;
-			if (data.length >= Constants.EF_ZIP64_SCOMP) {
-				size = readUInt64LE(data, Constants.EF_ZIP64_SUNCOMP);
-				if (_centralHeader.size === Constants.EF_ZIP64_OR_32) _centralHeader.size = size;
-			}
-			if (data.length >= Constants.EF_ZIP64_RHO) {
-				compressedSize = readUInt64LE(data, Constants.EF_ZIP64_SCOMP);
-				if (_centralHeader.compressedSize === Constants.EF_ZIP64_OR_32) _centralHeader.compressedSize = compressedSize;
-			}
-			if (data.length >= Constants.EF_ZIP64_DSN) {
-				offset = readUInt64LE(data, Constants.EF_ZIP64_RHO);
-				if (_centralHeader.offset === Constants.EF_ZIP64_OR_32) _centralHeader.offset = offset;
-			}
-			if (data.length >= Constants.EF_ZIP64_DSN + 4) {
-				diskNumStart = data.readUInt32LE(Constants.EF_ZIP64_DSN);
-				if (_centralHeader.diskNumStart === Constants.EF_ZIP64_OR_16) _centralHeader.diskNumStart = diskNumStart;
-			}
-		}
-		return {
-			get entryName() {
-				return decoder.decode(_entryName);
-			},
-			get rawEntryName() {
-				return _entryName;
-			},
-			set entryName(val) {
-				_entryName = Utils.toBuffer(val, decoder.encode);
-				var lastChar = _entryName[_entryName.length - 1];
-				_isDirectory = lastChar === 47 || lastChar === 92;
-				_centralHeader.fileNameLength = _entryName.length;
-			},
-			get efs() {
-				if (typeof _efs === "function") return _efs(this.entryName);
-				else return _efs;
-			},
-			get extra() {
-				return _extra;
-			},
-			set extra(val) {
-				_extra = val;
-				_centralHeader.extraLength = val.length;
-				parseExtra(val);
-			},
-			get comment() {
-				return decoder.decode(_comment);
-			},
-			set comment(val) {
-				_comment = Utils.toBuffer(val, decoder.encode);
-				_centralHeader.commentLength = _comment.length;
-				if (_comment.length > 65535) throw Utils.Errors.COMMENT_TOO_LONG();
-			},
-			get name() {
-				var n = decoder.decode(_entryName);
-				return _isDirectory ? n.substr(n.length - 1).split("/").pop() : n.split("/").pop();
-			},
-			get isDirectory() {
-				return _isDirectory;
-			},
-			getCompressedData: function() {
-				return compress(false, null);
-			},
-			getCompressedDataAsync: function(callback) {
-				compress(true, callback);
-			},
-			setData: function(value) {
-				uncompressedData = Utils.toBuffer(value, Utils.decoder.encode);
-				if (!_isDirectory && uncompressedData.length) {
-					_centralHeader.size = uncompressedData.length;
-					_centralHeader.method = Utils.Constants.DEFLATED;
-					_centralHeader.crc = Utils.crc32(value);
-					_centralHeader.changed = true;
-				} else _centralHeader.method = Utils.Constants.STORED;
-			},
-			getData: function(pass) {
-				if (_centralHeader.changed) return uncompressedData;
-				else return decompress(false, null, pass);
-			},
-			getDataAsync: function(callback, pass) {
-				if (_centralHeader.changed) callback(uncompressedData);
-				else decompress(true, callback, pass);
-			},
-			set attr(attr) {
-				_centralHeader.attr = attr;
-			},
-			get attr() {
-				return _centralHeader.attr;
-			},
-			set header(data) {
-				_centralHeader.loadFromBinary(data);
-			},
-			get header() {
-				return _centralHeader;
-			},
-			packCentralHeader: function() {
-				_centralHeader.flags_efs = this.efs;
-				_centralHeader.extraLength = _extra.length;
-				var header = _centralHeader.centralHeaderToBinary();
-				var addpos = Utils.Constants.CENHDR;
-				_entryName.copy(header, addpos);
-				addpos += _entryName.length;
-				_extra.copy(header, addpos);
-				addpos += _centralHeader.extraLength;
-				_comment.copy(header, addpos);
-				return header;
-			},
-			packLocalHeader: function() {
-				let addpos = 0;
-				_centralHeader.flags_efs = this.efs;
-				_centralHeader.extraLocalLength = _extralocal.length;
-				const localHeaderBuf = _centralHeader.localHeaderToBinary();
-				const localHeader = Buffer.alloc(localHeaderBuf.length + _entryName.length + _centralHeader.extraLocalLength);
-				localHeaderBuf.copy(localHeader, addpos);
-				addpos += localHeaderBuf.length;
-				_entryName.copy(localHeader, addpos);
-				addpos += _entryName.length;
-				_extralocal.copy(localHeader, addpos);
-				addpos += _extralocal.length;
-				return localHeader;
-			},
-			toJSON: function() {
-				const bytes = function(nr) {
-					return "<" + (nr && nr.length + " bytes buffer" || "null") + ">";
-				};
-				return {
-					entryName: this.entryName,
-					name: this.name,
-					comment: this.comment,
-					isDirectory: this.isDirectory,
-					header: _centralHeader.toJSON(),
-					compressedData: bytes(input),
-					data: bytes(uncompressedData)
-				};
-			},
-			toString: function() {
-				return JSON.stringify(this.toJSON(), null, "	");
-			}
-		};
-	};
-}));
-//#endregion
-//#region node_modules/.pnpm/adm-zip@0.5.17/node_modules/adm-zip/zipFile.js
-var require_zipFile = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const ZipEntry = require_zipEntry();
-	const Headers = require_headers();
-	const Utils = require_util();
-	module.exports = function(inBuffer, options) {
-		var entryList = [], entryTable = {}, _comment = Buffer.alloc(0), mainHeader = new Headers.MainHeader(), loadedEntries = false;
-		const temporary = /* @__PURE__ */ new Set();
-		const opts = options;
-		const { noSort, decoder } = opts;
-		if (inBuffer) readMainHeader(opts.readEntries);
-		else loadedEntries = true;
-		function makeTemporaryFolders() {
-			const foldersList = /* @__PURE__ */ new Set();
-			for (const elem of Object.keys(entryTable)) {
-				const elements = elem.split("/");
-				elements.pop();
-				if (!elements.length) continue;
-				for (let i = 0; i < elements.length; i++) {
-					const sub = elements.slice(0, i + 1).join("/") + "/";
-					foldersList.add(sub);
-				}
-			}
-			for (const elem of foldersList) if (!(elem in entryTable)) {
-				const tempfolder = new ZipEntry(opts);
-				tempfolder.entryName = elem;
-				tempfolder.attr = 16;
-				tempfolder.temporary = true;
-				entryList.push(tempfolder);
-				entryTable[tempfolder.entryName] = tempfolder;
-				temporary.add(tempfolder);
-			}
-		}
-		function readEntries() {
-			loadedEntries = true;
-			entryTable = {};
-			if (mainHeader.diskEntries > (inBuffer.length - mainHeader.offset) / Utils.Constants.CENHDR) throw Utils.Errors.DISK_ENTRY_TOO_LARGE();
-			entryList = new Array(mainHeader.diskEntries);
-			var index = mainHeader.offset;
-			for (var i = 0; i < entryList.length; i++) {
-				var tmp = index, entry = new ZipEntry(opts, inBuffer);
-				entry.header = inBuffer.slice(tmp, tmp += Utils.Constants.CENHDR);
-				entry.entryName = inBuffer.slice(tmp, tmp += entry.header.fileNameLength);
-				if (entry.header.extraLength) entry.extra = inBuffer.slice(tmp, tmp += entry.header.extraLength);
-				if (entry.header.commentLength) entry.comment = inBuffer.slice(tmp, tmp + entry.header.commentLength);
-				index += entry.header.centralHeaderSize;
-				entryList[i] = entry;
-				entryTable[entry.entryName] = entry;
-			}
-			temporary.clear();
-			makeTemporaryFolders();
-		}
-		function readMainHeader(readNow) {
-			var i = inBuffer.length - Utils.Constants.ENDHDR, max = Math.max(0, i - 65535), n = max, endStart = inBuffer.length, endOffset = -1, commentEnd = 0;
-			if (typeof opts.trailingSpace === "boolean" ? opts.trailingSpace : false) max = 0;
-			for (; i >= n; i--) {
-				if (inBuffer[i] !== 80) continue;
-				if (inBuffer.readUInt32LE(i) === Utils.Constants.ENDSIG) {
-					endOffset = i;
-					commentEnd = i;
-					endStart = i + Utils.Constants.ENDHDR;
-					n = i - Utils.Constants.END64HDR;
-					continue;
-				}
-				if (inBuffer.readUInt32LE(i) === Utils.Constants.END64SIG) {
-					n = max;
-					continue;
-				}
-				if (inBuffer.readUInt32LE(i) === Utils.Constants.ZIP64SIG) {
-					endOffset = i;
-					endStart = i + Utils.readBigUInt64LE(inBuffer, i + Utils.Constants.ZIP64SIZE) + Utils.Constants.ZIP64LEAD;
+				case "preminor":
+					this.prerelease.length = 0;
+					this.patch = 0;
+					this.minor++;
+					this.inc("pre", identifier, identifierBase);
 					break;
-				}
-			}
-			if (endOffset == -1) throw Utils.Errors.INVALID_FORMAT();
-			mainHeader.loadFromBinary(inBuffer.slice(endOffset, endStart));
-			if (mainHeader.commentLength) _comment = inBuffer.slice(commentEnd + Utils.Constants.ENDHDR);
-			if (readNow) readEntries();
-		}
-		function sortEntries() {
-			if (entryList.length > 1 && !noSort) entryList.sort((a, b) => a.entryName.toLowerCase().localeCompare(b.entryName.toLowerCase()));
-		}
-		return {
-			/**
-			* Returns an array of ZipEntry objects existent in the current opened archive
-			* @return Array
-			*/
-			get entries() {
-				if (!loadedEntries) readEntries();
-				return entryList.filter((e) => !temporary.has(e));
-			},
-			/**
-			* Archive comment
-			* @return {String}
-			*/
-			get comment() {
-				return decoder.decode(_comment);
-			},
-			set comment(val) {
-				_comment = Utils.toBuffer(val, decoder.encode);
-				mainHeader.commentLength = _comment.length;
-			},
-			getEntryCount: function() {
-				if (!loadedEntries) return mainHeader.diskEntries;
-				return entryList.length;
-			},
-			forEach: function(callback) {
-				this.entries.forEach(callback);
-			},
-			/**
-			* Returns a reference to the entry with the given name or null if entry is inexistent
-			*
-			* @param entryName
-			* @return ZipEntry
-			*/
-			getEntry: function(entryName) {
-				if (!loadedEntries) readEntries();
-				return entryTable[entryName] || null;
-			},
-			/**
-			* Adds the given entry to the entry list
-			*
-			* @param entry
-			*/
-			setEntry: function(entry) {
-				if (!loadedEntries) readEntries();
-				entryList.push(entry);
-				entryTable[entry.entryName] = entry;
-				mainHeader.totalEntries = entryList.length;
-			},
-			/**
-			* Removes the file with the given name from the entry list.
-			*
-			* If the entry is a directory, then all nested files and directories will be removed
-			* @param entryName
-			* @returns {void}
-			*/
-			deleteFile: function(entryName, withsubfolders = true) {
-				if (!loadedEntries) readEntries();
-				const entry = entryTable[entryName];
-				this.getEntryChildren(entry, withsubfolders).map((child) => child.entryName).forEach(this.deleteEntry);
-			},
-			/**
-			* Removes the entry with the given name from the entry list.
-			*
-			* @param {string} entryName
-			* @returns {void}
-			*/
-			deleteEntry: function(entryName) {
-				if (!loadedEntries) readEntries();
-				const entry = entryTable[entryName];
-				const index = entryList.indexOf(entry);
-				if (index >= 0) {
-					entryList.splice(index, 1);
-					delete entryTable[entryName];
-					mainHeader.totalEntries = entryList.length;
-				}
-			},
-			/**
-			*  Iterates and returns all nested files and directories of the given entry
-			*
-			* @param entry
-			* @return Array
-			*/
-			getEntryChildren: function(entry, subfolders = true) {
-				if (!loadedEntries) readEntries();
-				if (typeof entry === "object") if (entry.isDirectory && subfolders) {
-					const list = [];
-					const name = entry.entryName;
-					for (const zipEntry of entryList) if (zipEntry.entryName.startsWith(name)) list.push(zipEntry);
-					return list;
-				} else return [entry];
-				return [];
-			},
-			/**
-			*  How many child elements entry has
-			*
-			* @param {ZipEntry} entry
-			* @return {integer}
-			*/
-			getChildCount: function(entry) {
-				if (entry && entry.isDirectory) {
-					const list = this.getEntryChildren(entry);
-					return list.includes(entry) ? list.length - 1 : list.length;
-				}
-				return 0;
-			},
-			/**
-			* Returns the zip file
-			*
-			* @return Buffer
-			*/
-			compressToBuffer: function() {
-				if (!loadedEntries) readEntries();
-				sortEntries();
-				const dataBlock = [];
-				const headerBlocks = [];
-				let totalSize = 0;
-				let dindex = 0;
-				mainHeader.size = 0;
-				mainHeader.offset = 0;
-				let totalEntries = 0;
-				for (const entry of this.entries) {
-					const compressedData = entry.getCompressedData();
-					entry.header.offset = dindex;
-					const localHeader = entry.packLocalHeader();
-					const dataLength = localHeader.length + compressedData.length;
-					dindex += dataLength;
-					dataBlock.push(localHeader);
-					dataBlock.push(compressedData);
-					const centralHeader = entry.packCentralHeader();
-					headerBlocks.push(centralHeader);
-					mainHeader.size += centralHeader.length;
-					totalSize += dataLength + centralHeader.length;
-					totalEntries++;
-				}
-				totalSize += mainHeader.mainHeaderSize;
-				mainHeader.offset = dindex;
-				mainHeader.totalEntries = totalEntries;
-				dindex = 0;
-				const outBuffer = Buffer.alloc(totalSize);
-				for (const content of dataBlock) {
-					content.copy(outBuffer, dindex);
-					dindex += content.length;
-				}
-				for (const content of headerBlocks) {
-					content.copy(outBuffer, dindex);
-					dindex += content.length;
-				}
-				const mh = mainHeader.toBinary();
-				if (_comment) _comment.copy(mh, Utils.Constants.ENDHDR);
-				mh.copy(outBuffer, dindex);
-				inBuffer = outBuffer;
-				loadedEntries = false;
-				return outBuffer;
-			},
-			toAsyncBuffer: function(onSuccess, onFail, onItemStart, onItemEnd) {
-				try {
-					if (!loadedEntries) readEntries();
-					sortEntries();
-					const dataBlock = [];
-					const centralHeaders = [];
-					let totalSize = 0;
-					let dindex = 0;
-					let totalEntries = 0;
-					mainHeader.size = 0;
-					mainHeader.offset = 0;
-					const compress2Buffer = function(entryLists) {
-						if (entryLists.length > 0) {
-							const entry = entryLists.shift();
-							const name = entry.entryName + entry.extra.toString();
-							if (onItemStart) onItemStart(name);
-							entry.getCompressedDataAsync(function(compressedData) {
-								if (onItemEnd) onItemEnd(name);
-								entry.header.offset = dindex;
-								const localHeader = entry.packLocalHeader();
-								const dataLength = localHeader.length + compressedData.length;
-								dindex += dataLength;
-								dataBlock.push(localHeader);
-								dataBlock.push(compressedData);
-								const centalHeader = entry.packCentralHeader();
-								centralHeaders.push(centalHeader);
-								mainHeader.size += centalHeader.length;
-								totalSize += dataLength + centalHeader.length;
-								totalEntries++;
-								compress2Buffer(entryLists);
-							});
-						} else {
-							totalSize += mainHeader.mainHeaderSize;
-							mainHeader.offset = dindex;
-							mainHeader.totalEntries = totalEntries;
-							dindex = 0;
-							const outBuffer = Buffer.alloc(totalSize);
-							dataBlock.forEach(function(content) {
-								content.copy(outBuffer, dindex);
-								dindex += content.length;
-							});
-							centralHeaders.forEach(function(content) {
-								content.copy(outBuffer, dindex);
-								dindex += content.length;
-							});
-							const mh = mainHeader.toBinary();
-							if (_comment) _comment.copy(mh, Utils.Constants.ENDHDR);
-							mh.copy(outBuffer, dindex);
-							inBuffer = outBuffer;
-							loadedEntries = false;
-							onSuccess(outBuffer);
+				case "prepatch":
+					this.prerelease.length = 0;
+					this.inc("patch", identifier, identifierBase);
+					this.inc("pre", identifier, identifierBase);
+					break;
+				case "prerelease":
+					if (this.prerelease.length === 0) this.inc("patch", identifier, identifierBase);
+					this.inc("pre", identifier, identifierBase);
+					break;
+				case "release":
+					if (this.prerelease.length === 0) throw new Error(`version ${this.raw} is not a prerelease`);
+					this.prerelease.length = 0;
+					break;
+				case "major":
+					if (this.minor !== 0 || this.patch !== 0 || this.prerelease.length === 0) this.major++;
+					this.minor = 0;
+					this.patch = 0;
+					this.prerelease = [];
+					break;
+				case "minor":
+					if (this.patch !== 0 || this.prerelease.length === 0) this.minor++;
+					this.patch = 0;
+					this.prerelease = [];
+					break;
+				case "patch":
+					if (this.prerelease.length === 0) this.patch++;
+					this.prerelease = [];
+					break;
+				case "pre": {
+					const base = Number(identifierBase) ? 1 : 0;
+					if (this.prerelease.length === 0) this.prerelease = [base];
+					else {
+						let i = this.prerelease.length;
+						while (--i >= 0) if (typeof this.prerelease[i] === "number") {
+							this.prerelease[i]++;
+							i = -2;
 						}
-					};
-					compress2Buffer(Array.from(this.entries));
-				} catch (e) {
-					onFail(e);
+						if (i === -1) {
+							if (identifier === this.prerelease.join(".") && identifierBase === false) throw new Error("invalid increment argument: identifier already exists");
+							this.prerelease.push(base);
+						}
+					}
+					if (identifier) {
+						let prerelease = [identifier, base];
+						if (identifierBase === false) prerelease = [identifier];
+						if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
+							if (isNaN(this.prerelease[1])) this.prerelease = prerelease;
+						} else this.prerelease = prerelease;
+					}
+					break;
 				}
+				default: throw new Error(`invalid increment argument: ${release}`);
 			}
-		};
+			this.raw = this.format();
+			if (this.build.length) this.raw += `+${this.build.join(".")}`;
+			return this;
+		}
 	};
 }));
 //#endregion
-//#region src/main.ts
-var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((exports, module) => {
-	const Utils = require_util();
-	const pth = __require("path");
-	const ZipEntry = require_zipEntry();
-	const ZipFile = require_zipFile();
-	const get_Bool = (...val) => Utils.findLast(val, (c) => typeof c === "boolean");
-	const get_Str = (...val) => Utils.findLast(val, (c) => typeof c === "string");
-	const get_Fun = (...val) => Utils.findLast(val, (c) => typeof c === "function");
-	const defaultOptions = {
-		noSort: false,
-		readEntries: false,
-		method: Utils.Constants.NONE,
-		fs: null
-	};
-	module.exports = function(input, options) {
-		let inBuffer = null;
-		const opts = Object.assign(Object.create(null), defaultOptions);
-		if (input && "object" === typeof input) {
-			if (!(input instanceof Uint8Array)) {
-				Object.assign(opts, input);
-				input = opts.input ? opts.input : void 0;
-				if (opts.input) delete opts.input;
-			}
-			if (Buffer.isBuffer(input)) {
-				inBuffer = input;
-				opts.method = Utils.Constants.BUFFER;
-				input = void 0;
-			}
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/parse.js
+var require_parse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const parse = (version, options, throwErrors = false) => {
+		if (version instanceof SemVer) return version;
+		try {
+			return new SemVer(version, options);
+		} catch (er) {
+			if (!throwErrors) return null;
+			throw er;
 		}
-		Object.assign(opts, options);
-		const filetools = new Utils(opts);
-		if (typeof opts.decoder !== "object" || typeof opts.decoder.encode !== "function" || typeof opts.decoder.decode !== "function") opts.decoder = Utils.decoder;
-		if (input && "string" === typeof input) if (filetools.fs.existsSync(input)) {
-			opts.method = Utils.Constants.FILE;
-			opts.filename = input;
-			inBuffer = filetools.fs.readFileSync(input);
-		} else throw Utils.Errors.INVALID_FILENAME();
-		const _zip = new ZipFile(inBuffer, opts);
-		const { canonical, sanitize, zipnamefix } = Utils;
-		function getEntry(entry) {
-			if (entry && _zip) {
-				var item;
-				if (typeof entry === "string") item = _zip.getEntry(pth.posix.normalize(entry));
-				if (typeof entry === "object" && typeof entry.entryName !== "undefined" && typeof entry.header !== "undefined") item = _zip.getEntry(entry.entryName);
-				if (item) return item;
-			}
+	};
+	module.exports = parse;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/valid.js
+var require_valid$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const parse = require_parse();
+	const valid = (version, options) => {
+		const v = parse(version, options);
+		return v ? v.version : null;
+	};
+	module.exports = valid;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/clean.js
+var require_clean = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const parse = require_parse();
+	const clean = (version, options) => {
+		const s = parse(version.trim().replace(/^[=v]+/, ""), options);
+		return s ? s.version : null;
+	};
+	module.exports = clean;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/inc.js
+var require_inc = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const inc = (version, release, options, identifier, identifierBase) => {
+		if (typeof options === "string") {
+			identifierBase = identifier;
+			identifier = options;
+			options = void 0;
+		}
+		try {
+			return new SemVer(version instanceof SemVer ? version.version : version, options).inc(release, identifier, identifierBase).version;
+		} catch (er) {
 			return null;
 		}
-		function fixPath(zipPath) {
-			const { join, normalize, sep } = pth.posix;
-			return join(pth.isAbsolute(zipPath) ? "/" : ".", normalize(sep + zipPath.split("\\").join(sep) + sep));
-		}
-		function filenameFilter(filterfn) {
-			if (filterfn instanceof RegExp) return (function(rx) {
-				return function(filename) {
-					return rx.test(filename);
-				};
-			})(filterfn);
-			else if ("function" !== typeof filterfn) return () => true;
-			return filterfn;
-		}
-		const relativePath = (local, entry) => {
-			let lastChar = entry.slice(-1);
-			lastChar = lastChar === filetools.sep ? filetools.sep : "";
-			return pth.relative(local, entry) + lastChar;
-		};
-		return {
-			/**
-			* Extracts the given entry from the archive and returns the content as a Buffer object
-			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
-			* @param {Buffer|string} [pass] - password
-			* @return Buffer or Null in case of error
-			*/
-			readFile: function(entry, pass) {
-				var item = getEntry(entry);
-				return item && item.getData(pass) || null;
-			},
-			/**
-			* Returns how many child elements has on entry (directories) on files it is always 0
-			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
-			* @returns {integer}
-			*/
-			childCount: function(entry) {
-				const item = getEntry(entry);
-				if (item) return _zip.getChildCount(item);
-			},
-			/**
-			* Asynchronous readFile
-			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
-			* @param {callback} callback
-			*
-			* @return Buffer or Null in case of error
-			*/
-			readFileAsync: function(entry, callback) {
-				var item = getEntry(entry);
-				if (item) item.getDataAsync(callback);
-				else callback(null, "getEntry failed for:" + entry);
-			},
-			/**
-			* Extracts the given entry from the archive and returns the content as plain text in the given encoding
-			* @param {ZipEntry|string} entry - ZipEntry object or String with the full path of the entry
-			* @param {string} encoding - Optional. If no encoding is specified utf8 is used
-			*
-			* @return String
-			*/
-			readAsText: function(entry, encoding) {
-				var item = getEntry(entry);
-				if (item) {
-					var data = item.getData();
-					if (data && data.length) return data.toString(encoding || "utf8");
-				}
-				return "";
-			},
-			/**
-			* Asynchronous readAsText
-			* @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
-			* @param {callback} callback
-			* @param {string} [encoding] - Optional. If no encoding is specified utf8 is used
-			*
-			* @return String
-			*/
-			readAsTextAsync: function(entry, callback, encoding) {
-				var item = getEntry(entry);
-				if (item) item.getDataAsync(function(data, err) {
-					if (err) {
-						callback(data, err);
-						return;
-					}
-					if (data && data.length) callback(data.toString(encoding || "utf8"));
-					else callback("");
-				});
-				else callback("");
-			},
-			/**
-			* Remove the entry from the file or the entry and all it's nested directories and files if the given entry is a directory
-			*
-			* @param {ZipEntry|string} entry
-			* @returns {void}
-			*/
-			deleteFile: function(entry, withsubfolders = true) {
-				var item = getEntry(entry);
-				if (item) _zip.deleteFile(item.entryName, withsubfolders);
-			},
-			/**
-			* Remove the entry from the file or directory without affecting any nested entries
-			*
-			* @param {ZipEntry|string} entry
-			* @returns {void}
-			*/
-			deleteEntry: function(entry) {
-				var item = getEntry(entry);
-				if (item) _zip.deleteEntry(item.entryName);
-			},
-			/**
-			* Adds a comment to the zip. The zip must be rewritten after adding the comment.
-			*
-			* @param {string} comment
-			*/
-			addZipComment: function(comment) {
-				_zip.comment = comment;
-			},
-			/**
-			* Returns the zip comment
-			*
-			* @return String
-			*/
-			getZipComment: function() {
-				return _zip.comment || "";
-			},
-			/**
-			* Adds a comment to a specified zipEntry. The zip must be rewritten after adding the comment
-			* The comment cannot exceed 65535 characters in length
-			*
-			* @param {ZipEntry} entry
-			* @param {string} comment
-			*/
-			addZipEntryComment: function(entry, comment) {
-				var item = getEntry(entry);
-				if (item) item.comment = comment;
-			},
-			/**
-			* Returns the comment of the specified entry
-			*
-			* @param {ZipEntry} entry
-			* @return String
-			*/
-			getZipEntryComment: function(entry) {
-				var item = getEntry(entry);
-				if (item) return item.comment || "";
-				return "";
-			},
-			/**
-			* Updates the content of an existing entry inside the archive. The zip must be rewritten after updating the content
-			*
-			* @param {ZipEntry} entry
-			* @param {Buffer} content
-			*/
-			updateFile: function(entry, content) {
-				var item = getEntry(entry);
-				if (item) item.setData(content);
-			},
-			/**
-			* Adds a file from the disk to the archive
-			*
-			* @param {string} localPath File to add to zip
-			* @param {string} [zipPath] Optional path inside the zip
-			* @param {string} [zipName] Optional name for the file
-			* @param {string} [comment] Optional file comment
-			*/
-			addLocalFile: function(localPath, zipPath, zipName, comment) {
-				if (filetools.fs.existsSync(localPath)) {
-					zipPath = zipPath ? fixPath(zipPath) : "";
-					const p = pth.win32.basename(pth.win32.normalize(localPath));
-					zipPath += zipName ? zipName : p;
-					const _attr = filetools.fs.statSync(localPath);
-					const data = _attr.isFile() ? filetools.fs.readFileSync(localPath) : Buffer.alloc(0);
-					if (_attr.isDirectory()) zipPath += filetools.sep;
-					this.addFile(zipPath, data, comment, _attr);
-				} else throw Utils.Errors.FILE_NOT_FOUND(localPath);
-			},
-			/**
-			* Callback for showing if everything was done.
-			*
-			* @callback doneCallback
-			* @param {Error} err - Error object
-			* @param {boolean} done - was request fully completed
-			*/
-			/**
-			* Adds a file from the disk to the archive
-			*
-			* @param {(object|string)} options - options object, if it is string it us used as localPath.
-			* @param {string} options.localPath - Local path to the file.
-			* @param {string} [options.comment] - Optional file comment.
-			* @param {string} [options.zipPath] - Optional path inside the zip
-			* @param {string} [options.zipName] - Optional name for the file
-			* @param {doneCallback} callback - The callback that handles the response.
-			*/
-			addLocalFileAsync: function(options, callback) {
-				options = typeof options === "object" ? options : { localPath: options };
-				const localPath = pth.resolve(options.localPath);
-				const { comment } = options;
-				let { zipPath, zipName } = options;
-				const self = this;
-				filetools.fs.stat(localPath, function(err, stats) {
-					if (err) return callback(err, false);
-					zipPath = zipPath ? fixPath(zipPath) : "";
-					const p = pth.win32.basename(pth.win32.normalize(localPath));
-					zipPath += zipName ? zipName : p;
-					if (stats.isFile()) filetools.fs.readFile(localPath, function(err, data) {
-						if (err) return callback(err, false);
-						self.addFile(zipPath, data, comment, stats);
-						return setImmediate(callback, void 0, true);
-					});
-					else if (stats.isDirectory()) {
-						zipPath += filetools.sep;
-						self.addFile(zipPath, Buffer.alloc(0), comment, stats);
-						return setImmediate(callback, void 0, true);
-					}
-				});
-			},
-			/**
-			* Adds a local directory and all its nested files and directories to the archive
-			*
-			* @param {string} localPath - local path to the folder
-			* @param {string} [zipPath] - optional path inside zip
-			* @param {(RegExp|function)} [filter] - optional RegExp or Function if files match will be included.
-			*/
-			addLocalFolder: function(localPath, zipPath, filter) {
-				filter = filenameFilter(filter);
-				zipPath = zipPath ? fixPath(zipPath) : "";
-				localPath = pth.normalize(localPath);
-				if (filetools.fs.existsSync(localPath)) {
-					const items = filetools.findFiles(localPath);
-					const self = this;
-					if (items.length) for (const filepath of items) {
-						const p = pth.join(zipPath, relativePath(localPath, filepath));
-						if (filter(p)) self.addLocalFile(filepath, pth.dirname(p));
-					}
-				} else throw Utils.Errors.FILE_NOT_FOUND(localPath);
-			},
-			/**
-			* Asynchronous addLocalFolder
-			* @param {string} localPath
-			* @param {callback} callback
-			* @param {string} [zipPath] optional path inside zip
-			* @param {RegExp|function} [filter] optional RegExp or Function if files match will
-			*               be included.
-			*/
-			addLocalFolderAsync: function(localPath, callback, zipPath, filter) {
-				filter = filenameFilter(filter);
-				zipPath = zipPath ? fixPath(zipPath) : "";
-				localPath = pth.normalize(localPath);
-				var self = this;
-				filetools.fs.open(localPath, "r", function(err) {
-					if (err && err.code === "ENOENT") callback(void 0, Utils.Errors.FILE_NOT_FOUND(localPath));
-					else if (err) callback(void 0, err);
-					else {
-						var items = filetools.findFiles(localPath);
-						var i = -1;
-						var next = function() {
-							i += 1;
-							if (i < items.length) {
-								var filepath = items[i];
-								var p = relativePath(localPath, filepath).split("\\").join("/");
-								p = p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "");
-								if (filter(p)) filetools.fs.stat(filepath, function(er0, stats) {
-									if (er0) callback(void 0, er0);
-									if (stats.isFile()) filetools.fs.readFile(filepath, function(er1, data) {
-										if (er1) callback(void 0, er1);
-										else {
-											self.addFile(zipPath + p, data, "", stats);
-											next();
-										}
-									});
-									else {
-										self.addFile(zipPath + p + "/", Buffer.alloc(0), "", stats);
-										next();
-									}
-								});
-								else process.nextTick(() => {
-									next();
-								});
-							} else callback(true, void 0);
-						};
-						next();
-					}
-				});
-			},
-			/**
-			* Adds a local directory and all its nested files and directories to the archive
-			*
-			* @param {object | string} options - options object, if it is string it us used as localPath.
-			* @param {string} options.localPath - Local path to the folder.
-			* @param {string} [options.zipPath] - optional path inside zip.
-			* @param {RegExp|function} [options.filter] - optional RegExp or Function if files match will be included.
-			* @param {function|string} [options.namefix] - optional function to help fix filename
-			* @param {doneCallback} callback - The callback that handles the response.
-			*
-			*/
-			addLocalFolderAsync2: function(options, callback) {
-				const self = this;
-				options = typeof options === "object" ? options : { localPath: options };
-				localPath = pth.resolve(fixPath(options.localPath));
-				let { zipPath, filter, namefix } = options;
-				if (filter instanceof RegExp) filter = (function(rx) {
-					return function(filename) {
-						return rx.test(filename);
-					};
-				})(filter);
-				else if ("function" !== typeof filter) filter = function() {
-					return true;
-				};
-				zipPath = zipPath ? fixPath(zipPath) : "";
-				if (namefix == "latin1") namefix = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "");
-				if (typeof namefix !== "function") namefix = (str) => str;
-				const relPathFix = (entry) => pth.join(zipPath, namefix(relativePath(localPath, entry)));
-				const fileNameFix = (entry) => pth.win32.basename(pth.win32.normalize(namefix(entry)));
-				filetools.fs.open(localPath, "r", function(err) {
-					if (err && err.code === "ENOENT") callback(void 0, Utils.Errors.FILE_NOT_FOUND(localPath));
-					else if (err) callback(void 0, err);
-					else filetools.findFilesAsync(localPath, function(err, fileEntries) {
-						if (err) return callback(err);
-						fileEntries = fileEntries.filter((dir) => filter(relPathFix(dir)));
-						if (!fileEntries.length) callback(void 0, false);
-						setImmediate(fileEntries.reverse().reduce(function(next, entry) {
-							return function(err, done) {
-								if (err || done === false) return setImmediate(next, err, false);
-								self.addLocalFileAsync({
-									localPath: entry,
-									zipPath: pth.dirname(relPathFix(entry)),
-									zipName: fileNameFix(entry)
-								}, next);
-							};
-						}, callback));
-					});
-				});
-			},
-			/**
-			* Adds a local directory and all its nested files and directories to the archive
-			*
-			* @param {string} localPath - path where files will be extracted
-			* @param {object} props - optional properties
-			* @param {string} [props.zipPath] - optional path inside zip
-			* @param {RegExp|function} [props.filter] - optional RegExp or Function if files match will be included.
-			* @param {function|string} [props.namefix] - optional function to help fix filename
-			*/
-			addLocalFolderPromise: function(localPath, props) {
-				return new Promise((resolve, reject) => {
-					this.addLocalFolderAsync2(Object.assign({ localPath }, props), (err, done) => {
-						if (err) reject(err);
-						if (done) resolve(this);
-					});
-				});
-			},
-			/**
-			* Allows you to create a entry (file or directory) in the zip file.
-			* If you want to create a directory the entryName must end in / and a null buffer should be provided.
-			* Comment and attributes are optional
-			*
-			* @param {string} entryName
-			* @param {Buffer | string} content - file content as buffer or utf8 coded string
-			* @param {string} [comment] - file comment
-			* @param {number | object} [attr] - number as unix file permissions, object as filesystem Stats object
-			*/
-			addFile: function(entryName, content, comment, attr) {
-				entryName = zipnamefix(entryName);
-				let entry = getEntry(entryName);
-				const update = entry != null;
-				if (!update) {
-					entry = new ZipEntry(opts);
-					entry.entryName = entryName;
-				}
-				entry.comment = comment || "";
-				const isStat = "object" === typeof attr && attr instanceof filetools.fs.Stats;
-				if (isStat) entry.header.time = attr.mtime;
-				var fileattr = entry.isDirectory ? 16 : 0;
-				let unix = entry.isDirectory ? 16384 : 32768;
-				if (isStat) unix |= 4095 & attr.mode;
-				else if ("number" === typeof attr) unix |= 4095 & attr;
-				else unix |= entry.isDirectory ? 493 : 420;
-				fileattr = (fileattr | unix << 16) >>> 0;
-				entry.attr = fileattr;
-				entry.setData(content);
-				if (!update) _zip.setEntry(entry);
-				return entry;
-			},
-			/**
-			* Returns an array of ZipEntry objects representing the files and folders inside the archive
-			*
-			* @param {string} [password]
-			* @returns Array
-			*/
-			getEntries: function(password) {
-				_zip.password = password;
-				return _zip ? _zip.entries : [];
-			},
-			/**
-			* Returns a ZipEntry object representing the file or folder specified by ``name``.
-			*
-			* @param {string} name
-			* @return ZipEntry
-			*/
-			getEntry: function(name) {
-				return getEntry(name);
-			},
-			getEntryCount: function() {
-				return _zip.getEntryCount();
-			},
-			forEach: function(callback) {
-				return _zip.forEach(callback);
-			},
-			/**
-			* Extracts the given entry to the given targetPath
-			* If the entry is a directory inside the archive, the entire directory and it's subdirectories will be extracted
-			*
-			* @param {string|ZipEntry} entry - ZipEntry object or String with the full path of the entry
-			* @param {string} targetPath - Target folder where to write the file
-			* @param {boolean} [maintainEntryPath=true] - If maintainEntryPath is true and the entry is inside a folder, the entry folder will be created in targetPath as well. Default is TRUE
-			* @param {boolean} [overwrite=false] - If the file already exists at the target path, the file will be overwriten if this is true.
-			* @param {boolean} [keepOriginalPermission=false] - The file will be set as the permission from the entry if this is true.
-			* @param {string} [outFileName] - String If set will override the filename of the extracted file (Only works if the entry is a file)
-			*
-			* @return Boolean
-			*/
-			extractEntryTo: function(entry, targetPath, maintainEntryPath, overwrite, keepOriginalPermission, outFileName) {
-				overwrite = get_Bool(false, overwrite);
-				keepOriginalPermission = get_Bool(false, keepOriginalPermission);
-				maintainEntryPath = get_Bool(true, maintainEntryPath);
-				outFileName = get_Str(keepOriginalPermission, outFileName);
-				var item = getEntry(entry);
-				if (!item) throw Utils.Errors.NO_ENTRY();
-				var entryName = canonical(item.entryName);
-				var target = sanitize(targetPath, outFileName && !item.isDirectory ? outFileName : maintainEntryPath ? entryName : pth.basename(entryName));
-				if (item.isDirectory) {
-					_zip.getEntryChildren(item).forEach(function(child) {
-						if (child.isDirectory) return;
-						var content = child.getData();
-						if (!content) throw Utils.Errors.CANT_EXTRACT_FILE();
-						var name = canonical(child.entryName);
-						var childName = sanitize(targetPath, maintainEntryPath ? name : pth.basename(name));
-						const fileAttr = keepOriginalPermission ? child.header.fileAttr : void 0;
-						filetools.writeFileTo(childName, content, overwrite, fileAttr);
-					});
-					return true;
-				}
-				var content = item.getData(_zip.password);
-				if (!content) throw Utils.Errors.CANT_EXTRACT_FILE();
-				if (filetools.fs.existsSync(target) && !overwrite) throw Utils.Errors.CANT_OVERRIDE();
-				const fileAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
-				filetools.writeFileTo(target, content, overwrite, fileAttr);
-				return true;
-			},
-			/**
-			* Test the archive
-			* @param {string} [pass]
-			*/
-			test: function(pass) {
-				if (!_zip) return false;
-				for (var entry in _zip.entries) try {
-					if (entry.isDirectory) continue;
-					if (!_zip.entries[entry].getData(pass)) return false;
-				} catch (err) {
-					return false;
-				}
-				return true;
-			},
-			/**
-			* Extracts the entire archive to the given location
-			*
-			* @param {string} targetPath Target location
-			* @param {boolean} [overwrite=false] If the file already exists at the target path, the file will be overwriten if this is true.
-			*                  Default is FALSE
-			* @param {boolean} [keepOriginalPermission=false] The file will be set as the permission from the entry if this is true.
-			*                  Default is FALSE
-			* @param {string|Buffer} [pass] password
-			*/
-			extractAllTo: function(targetPath, overwrite, keepOriginalPermission, pass) {
-				keepOriginalPermission = get_Bool(false, keepOriginalPermission);
-				pass = get_Str(keepOriginalPermission, pass);
-				overwrite = get_Bool(false, overwrite);
-				if (!_zip) throw Utils.Errors.NO_ZIP();
-				_zip.entries.forEach(function(entry) {
-					var entryName = sanitize(targetPath, canonical(entry.entryName));
-					if (entry.isDirectory) {
-						filetools.makeDir(entryName);
-						return;
-					}
-					var content = entry.getData(pass);
-					if (!content) throw Utils.Errors.CANT_EXTRACT_FILE();
-					const fileAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
-					filetools.writeFileTo(entryName, content, overwrite, fileAttr);
-					try {
-						filetools.fs.utimesSync(entryName, entry.header.time, entry.header.time);
-					} catch (err) {
-						throw Utils.Errors.CANT_EXTRACT_FILE();
-					}
-				});
-			},
-			/**
-			* Asynchronous extractAllTo
-			*
-			* @param {string} targetPath Target location
-			* @param {boolean} [overwrite=false] If the file already exists at the target path, the file will be overwriten if this is true.
-			*                  Default is FALSE
-			* @param {boolean} [keepOriginalPermission=false] The file will be set as the permission from the entry if this is true.
-			*                  Default is FALSE
-			* @param {function} callback The callback will be executed when all entries are extracted successfully or any error is thrown.
-			*/
-			extractAllToAsync: function(targetPath, overwrite, keepOriginalPermission, callback) {
-				callback = get_Fun(overwrite, keepOriginalPermission, callback);
-				keepOriginalPermission = get_Bool(false, keepOriginalPermission);
-				overwrite = get_Bool(false, overwrite);
-				if (!callback) return new Promise((resolve, reject) => {
-					this.extractAllToAsync(targetPath, overwrite, keepOriginalPermission, function(err) {
-						if (err) reject(err);
-						else resolve(this);
-					});
-				});
-				if (!_zip) {
-					callback(Utils.Errors.NO_ZIP());
-					return;
-				}
-				targetPath = pth.resolve(targetPath);
-				const getPath = (entry) => sanitize(targetPath, pth.normalize(canonical(entry.entryName)));
-				const getError = (msg, file) => /* @__PURE__ */ new Error(msg + ": \"" + file + "\"");
-				const dirEntries = [];
-				const fileEntries = [];
-				_zip.entries.forEach((e) => {
-					if (e.isDirectory) dirEntries.push(e);
-					else fileEntries.push(e);
-				});
-				for (const entry of dirEntries) {
-					const dirPath = getPath(entry);
-					const dirAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
-					try {
-						filetools.makeDir(dirPath);
-						if (dirAttr) filetools.fs.chmodSync(dirPath, dirAttr);
-						filetools.fs.utimesSync(dirPath, entry.header.time, entry.header.time);
-					} catch (er) {
-						callback(getError("Unable to create folder", dirPath));
-					}
-				}
-				fileEntries.reverse().reduce(function(next, entry) {
-					return function(err) {
-						if (err) next(err);
-						else {
-							const entryName = pth.normalize(canonical(entry.entryName));
-							const filePath = sanitize(targetPath, entryName);
-							entry.getDataAsync(function(content, err_1) {
-								if (err_1) next(err_1);
-								else if (!content) next(Utils.Errors.CANT_EXTRACT_FILE());
-								else {
-									const fileAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
-									filetools.writeFileToAsync(filePath, content, overwrite, fileAttr, function(succ) {
-										if (!succ) next(getError("Unable to write file", filePath));
-										filetools.fs.utimes(filePath, entry.header.time, entry.header.time, function(err_2) {
-											if (err_2) next(getError("Unable to set times", filePath));
-											else next();
-										});
-									});
-								}
-							});
-						}
-					};
-				}, callback)();
-			},
-			/**
-			* Writes the newly created zip file to disk at the specified location or if a zip was opened and no ``targetFileName`` is provided, it will overwrite the opened zip
-			*
-			* @param {string} targetFileName
-			* @param {function} callback
-			*/
-			writeZip: function(targetFileName, callback) {
-				if (arguments.length === 1) {
-					if (typeof targetFileName === "function") {
-						callback = targetFileName;
-						targetFileName = "";
-					}
-				}
-				if (!targetFileName && opts.filename) targetFileName = opts.filename;
-				if (!targetFileName) return;
-				var zipData = _zip.compressToBuffer();
-				if (zipData) {
-					var ok = filetools.writeFileTo(targetFileName, zipData, true);
-					if (typeof callback === "function") callback(!ok ? /* @__PURE__ */ new Error("failed") : null, "");
-				}
-			},
-			/**
-			*
-			* @param {string} targetFileName
-			* @param {object} [props]
-			* @param {boolean} [props.overwrite=true] If the file already exists at the target path, the file will be overwriten if this is true.
-			* @param {boolean} [props.perm] The file will be set as the permission from the entry if this is true.
-			
-			* @returns {Promise<void>}
-			*/
-			writeZipPromise: function(targetFileName, props) {
-				const { overwrite, perm } = Object.assign({ overwrite: true }, props);
-				return new Promise((resolve, reject) => {
-					if (!targetFileName && opts.filename) targetFileName = opts.filename;
-					if (!targetFileName) reject("ADM-ZIP: ZIP File Name Missing");
-					this.toBufferPromise().then((zipData) => {
-						const ret = (done) => done ? resolve(done) : reject("ADM-ZIP: Wasn't able to write zip file");
-						filetools.writeFileToAsync(targetFileName, zipData, overwrite, perm, ret);
-					}, reject);
-				});
-			},
-			/**
-			* @returns {Promise<Buffer>} A promise to the Buffer.
-			*/
-			toBufferPromise: function() {
-				return new Promise((resolve, reject) => {
-					_zip.toAsyncBuffer(resolve, reject);
-				});
-			},
-			/**
-			* Returns the content of the entire zip file as a Buffer object
-			*
-			* @prop {function} [onSuccess]
-			* @prop {function} [onFail]
-			* @prop {function} [onItemStart]
-			* @prop {function} [onItemEnd]
-			* @returns {Buffer}
-			*/
-			toBuffer: function(onSuccess, onFail, onItemStart, onItemEnd) {
-				if (typeof onSuccess === "function") {
-					_zip.toAsyncBuffer(onSuccess, onFail, onItemStart, onItemEnd);
-					return null;
-				}
-				return _zip.compressToBuffer();
+	};
+	module.exports = inc;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/diff.js
+var require_diff = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const parse = require_parse();
+	const diff = (version1, version2) => {
+		const v1 = parse(version1, null, true);
+		const v2 = parse(version2, null, true);
+		const comparison = v1.compare(v2);
+		if (comparison === 0) return null;
+		const v1Higher = comparison > 0;
+		const highVersion = v1Higher ? v1 : v2;
+		const lowVersion = v1Higher ? v2 : v1;
+		const highHasPre = !!highVersion.prerelease.length;
+		if (!!lowVersion.prerelease.length && !highHasPre) {
+			if (!lowVersion.patch && !lowVersion.minor) return "major";
+			if (lowVersion.compareMain(highVersion) === 0) {
+				if (lowVersion.minor && !lowVersion.patch) return "minor";
+				return "patch";
 			}
-		};
+		}
+		const prefix = highHasPre ? "pre" : "";
+		if (v1.major !== v2.major) return prefix + "major";
+		if (v1.minor !== v2.minor) return prefix + "minor";
+		if (v1.patch !== v2.patch) return prefix + "patch";
+		return "prerelease";
+	};
+	module.exports = diff;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/major.js
+var require_major = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const major = (a, loose) => new SemVer(a, loose).major;
+	module.exports = major;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/minor.js
+var require_minor = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const minor = (a, loose) => new SemVer(a, loose).minor;
+	module.exports = minor;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/patch.js
+var require_patch = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const patch = (a, loose) => new SemVer(a, loose).patch;
+	module.exports = patch;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/prerelease.js
+var require_prerelease = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const parse = require_parse();
+	const prerelease = (version, options) => {
+		const parsed = parse(version, options);
+		return parsed && parsed.prerelease.length ? parsed.prerelease : null;
+	};
+	module.exports = prerelease;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/compare.js
+var require_compare = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
+	module.exports = compare;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/rcompare.js
+var require_rcompare = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const rcompare = (a, b, loose) => compare(b, a, loose);
+	module.exports = rcompare;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/compare-loose.js
+var require_compare_loose = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const compareLoose = (a, b) => compare(a, b, true);
+	module.exports = compareLoose;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/compare-build.js
+var require_compare_build = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const compareBuild = (a, b, loose) => {
+		const versionA = new SemVer(a, loose);
+		const versionB = new SemVer(b, loose);
+		return versionA.compare(versionB) || versionA.compareBuild(versionB);
+	};
+	module.exports = compareBuild;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/sort.js
+var require_sort = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compareBuild = require_compare_build();
+	const sort = (list, loose) => list.sort((a, b) => compareBuild(a, b, loose));
+	module.exports = sort;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/rsort.js
+var require_rsort = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compareBuild = require_compare_build();
+	const rsort = (list, loose) => list.sort((a, b) => compareBuild(b, a, loose));
+	module.exports = rsort;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/gt.js
+var require_gt = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const gt = (a, b, loose) => compare(a, b, loose) > 0;
+	module.exports = gt;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/lt.js
+var require_lt = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const lt = (a, b, loose) => compare(a, b, loose) < 0;
+	module.exports = lt;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/eq.js
+var require_eq = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const eq = (a, b, loose) => compare(a, b, loose) === 0;
+	module.exports = eq;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/neq.js
+var require_neq = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const neq = (a, b, loose) => compare(a, b, loose) !== 0;
+	module.exports = neq;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/gte.js
+var require_gte = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const gte = (a, b, loose) => compare(a, b, loose) >= 0;
+	module.exports = gte;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/lte.js
+var require_lte = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const compare = require_compare();
+	const lte = (a, b, loose) => compare(a, b, loose) <= 0;
+	module.exports = lte;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/cmp.js
+var require_cmp = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const eq = require_eq();
+	const neq = require_neq();
+	const gt = require_gt();
+	const gte = require_gte();
+	const lt = require_lt();
+	const lte = require_lte();
+	const cmp = (a, op, b, loose) => {
+		switch (op) {
+			case "===":
+				if (typeof a === "object") a = a.version;
+				if (typeof b === "object") b = b.version;
+				return a === b;
+			case "!==":
+				if (typeof a === "object") a = a.version;
+				if (typeof b === "object") b = b.version;
+				return a !== b;
+			case "":
+			case "=":
+			case "==": return eq(a, b, loose);
+			case "!=": return neq(a, b, loose);
+			case ">": return gt(a, b, loose);
+			case ">=": return gte(a, b, loose);
+			case "<": return lt(a, b, loose);
+			case "<=": return lte(a, b, loose);
+			default: throw new TypeError(`Invalid operator: ${op}`);
+		}
+	};
+	module.exports = cmp;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/coerce.js
+var require_coerce = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const parse = require_parse();
+	const { safeRe: re, t } = require_re();
+	const coerce = (version, options) => {
+		if (version instanceof SemVer) return version;
+		if (typeof version === "number") version = String(version);
+		if (typeof version !== "string") return null;
+		options = options || {};
+		let match = null;
+		if (!options.rtl) match = version.match(options.includePrerelease ? re[t.COERCEFULL] : re[t.COERCE]);
+		else {
+			const coerceRtlRegex = options.includePrerelease ? re[t.COERCERTLFULL] : re[t.COERCERTL];
+			let next;
+			while ((next = coerceRtlRegex.exec(version)) && (!match || match.index + match[0].length !== version.length)) {
+				if (!match || next.index + next[0].length !== match.index + match[0].length) match = next;
+				coerceRtlRegex.lastIndex = next.index + next[1].length + next[2].length;
+			}
+			coerceRtlRegex.lastIndex = -1;
+		}
+		if (match === null) return null;
+		const major = match[2];
+		return parse(`${major}.${match[3] || "0"}.${match[4] || "0"}${options.includePrerelease && match[5] ? `-${match[5]}` : ""}${options.includePrerelease && match[6] ? `+${match[6]}` : ""}`, options);
+	};
+	module.exports = coerce;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/truncate.js
+var require_truncate = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const parse = require_parse();
+	const constants = require_constants();
+	const SemVer = require_semver$1();
+	const truncate = (version, truncation, options) => {
+		if (!constants.RELEASE_TYPES.includes(truncation)) return null;
+		const clonedVersion = cloneInputVersion(version, options);
+		return clonedVersion && doTruncation(clonedVersion, truncation);
+	};
+	const cloneInputVersion = (version, options) => {
+		return parse(version instanceof SemVer ? version.version : version, options);
+	};
+	const doTruncation = (version, truncation) => {
+		if (isPrerelease(truncation)) return version.version;
+		version.prerelease = [];
+		switch (truncation) {
+			case "major":
+				version.minor = 0;
+				version.patch = 0;
+				break;
+			case "minor":
+				version.patch = 0;
+				break;
+		}
+		return version.format();
+	};
+	const isPrerelease = (type) => {
+		return type.startsWith("pre");
+	};
+	module.exports = truncate;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/internal/lrucache.js
+var require_lrucache = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	var LRUCache = class {
+		constructor() {
+			this.max = 1e3;
+			this.map = /* @__PURE__ */ new Map();
+		}
+		get(key) {
+			const value = this.map.get(key);
+			if (value === void 0) return;
+			else {
+				this.map.delete(key);
+				this.map.set(key, value);
+				return value;
+			}
+		}
+		delete(key) {
+			return this.map.delete(key);
+		}
+		set(key, value) {
+			if (!this.delete(key) && value !== void 0) {
+				if (this.map.size >= this.max) {
+					const firstKey = this.map.keys().next().value;
+					this.delete(firstKey);
+				}
+				this.map.set(key, value);
+			}
+			return this;
+		}
+	};
+	module.exports = LRUCache;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/classes/range.js
+var require_range = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SPACE_CHARACTERS = /\s+/g;
+	module.exports = class Range {
+		constructor(range, options) {
+			options = parseOptions(options);
+			if (range instanceof Range) if (range.loose === !!options.loose && range.includePrerelease === !!options.includePrerelease) return range;
+			else return new Range(range.raw, options);
+			if (range instanceof Comparator) {
+				this.raw = range.value;
+				this.set = [[range]];
+				this.formatted = void 0;
+				return this;
+			}
+			this.options = options;
+			this.loose = !!options.loose;
+			this.includePrerelease = !!options.includePrerelease;
+			this.raw = range.trim().replace(SPACE_CHARACTERS, " ");
+			this.set = this.raw.split("||").map((r) => this.parseRange(r.trim())).filter((c) => c.length);
+			if (!this.set.length) throw new TypeError(`Invalid SemVer Range: ${this.raw}`);
+			if (this.set.length > 1) {
+				const first = this.set[0];
+				this.set = this.set.filter((c) => !isNullSet(c[0]));
+				if (this.set.length === 0) this.set = [first];
+				else if (this.set.length > 1) {
+					for (const c of this.set) if (c.length === 1 && isAny(c[0])) {
+						this.set = [c];
+						break;
+					}
+				}
+			}
+			this.formatted = void 0;
+		}
+		get range() {
+			if (this.formatted === void 0) {
+				this.formatted = "";
+				for (let i = 0; i < this.set.length; i++) {
+					if (i > 0) this.formatted += "||";
+					const comps = this.set[i];
+					for (let k = 0; k < comps.length; k++) {
+						if (k > 0) this.formatted += " ";
+						this.formatted += comps[k].toString().trim();
+					}
+				}
+			}
+			return this.formatted;
+		}
+		format() {
+			return this.range;
+		}
+		toString() {
+			return this.range;
+		}
+		parseRange(range) {
+			range = range.replace(BUILDSTRIPRE, "");
+			const memoKey = ((this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) | (this.options.loose && FLAG_LOOSE)) + ":" + range;
+			const cached = cache.get(memoKey);
+			if (cached) return cached;
+			const loose = this.options.loose;
+			const hr = loose ? re[t.HYPHENRANGELOOSE] : re[t.HYPHENRANGE];
+			range = range.replace(hr, hyphenReplace(this.options.includePrerelease));
+			debug("hyphen replace", range);
+			range = range.replace(re[t.COMPARATORTRIM], comparatorTrimReplace);
+			debug("comparator trim", range);
+			range = range.replace(re[t.TILDETRIM], tildeTrimReplace);
+			debug("tilde trim", range);
+			range = range.replace(re[t.CARETTRIM], caretTrimReplace);
+			debug("caret trim", range);
+			let rangeList = range.split(" ").map((comp) => parseComparator(comp, this.options)).join(" ").split(/\s+/).map((comp) => replaceGTE0(comp, this.options));
+			if (loose) rangeList = rangeList.filter((comp) => {
+				debug("loose invalid filter", comp, this.options);
+				return !!comp.match(re[t.COMPARATORLOOSE]);
+			});
+			debug("range list", rangeList);
+			const rangeMap = /* @__PURE__ */ new Map();
+			const comparators = rangeList.map((comp) => new Comparator(comp, this.options));
+			for (const comp of comparators) {
+				if (isNullSet(comp)) return [comp];
+				rangeMap.set(comp.value, comp);
+			}
+			if (rangeMap.size > 1 && rangeMap.has("")) rangeMap.delete("");
+			const result = [...rangeMap.values()];
+			cache.set(memoKey, result);
+			return result;
+		}
+		intersects(range, options) {
+			if (!(range instanceof Range)) throw new TypeError("a Range is required");
+			return this.set.some((thisComparators) => {
+				return isSatisfiable(thisComparators, options) && range.set.some((rangeComparators) => {
+					return isSatisfiable(rangeComparators, options) && thisComparators.every((thisComparator) => {
+						return rangeComparators.every((rangeComparator) => {
+							return thisComparator.intersects(rangeComparator, options);
+						});
+					});
+				});
+			});
+		}
+		test(version) {
+			if (!version) return false;
+			if (typeof version === "string") try {
+				version = new SemVer(version, this.options);
+			} catch (er) {
+				return false;
+			}
+			for (let i = 0; i < this.set.length; i++) if (testSet(this.set[i], version, this.options)) return true;
+			return false;
+		}
+	};
+	const cache = new (require_lrucache())();
+	const parseOptions = require_parse_options();
+	const Comparator = require_comparator();
+	const debug = require_debug();
+	const SemVer = require_semver$1();
+	const { safeRe: re, src, t, comparatorTrimReplace, tildeTrimReplace, caretTrimReplace } = require_re();
+	const { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants();
+	const BUILDSTRIPRE = new RegExp(src[t.BUILD], "g");
+	const isNullSet = (c) => c.value === "<0.0.0-0";
+	const isAny = (c) => c.value === "";
+	const isSatisfiable = (comparators, options) => {
+		let result = true;
+		const remainingComparators = comparators.slice();
+		let testComparator = remainingComparators.pop();
+		while (result && remainingComparators.length) {
+			result = remainingComparators.every((otherComparator) => {
+				return testComparator.intersects(otherComparator, options);
+			});
+			testComparator = remainingComparators.pop();
+		}
+		return result;
+	};
+	const parseComparator = (comp, options) => {
+		comp = comp.replace(re[t.BUILD], "");
+		debug("comp", comp, options);
+		comp = replaceCarets(comp, options);
+		debug("caret", comp);
+		comp = replaceTildes(comp, options);
+		debug("tildes", comp);
+		comp = replaceXRanges(comp, options);
+		debug("xrange", comp);
+		comp = replaceStars(comp, options);
+		debug("stars", comp);
+		return comp;
+	};
+	const isX = (id) => !id || id.toLowerCase() === "x" || id === "*";
+	const replaceTildes = (comp, options) => {
+		return comp.trim().split(/\s+/).map((c) => replaceTilde(c, options)).join(" ");
+	};
+	const replaceTilde = (comp, options) => {
+		const r = options.loose ? re[t.TILDELOOSE] : re[t.TILDE];
+		return comp.replace(r, (_, M, m, p, pr) => {
+			debug("tilde", comp, _, M, m, p, pr);
+			let ret;
+			if (isX(M)) ret = "";
+			else if (isX(m)) ret = `>=${M}.0.0 <${+M + 1}.0.0-0`;
+			else if (isX(p)) ret = `>=${M}.${m}.0 <${M}.${+m + 1}.0-0`;
+			else if (pr) {
+				debug("replaceTilde pr", pr);
+				ret = `>=${M}.${m}.${p}-${pr} <${M}.${+m + 1}.0-0`;
+			} else ret = `>=${M}.${m}.${p} <${M}.${+m + 1}.0-0`;
+			debug("tilde return", ret);
+			return ret;
+		});
+	};
+	const replaceCarets = (comp, options) => {
+		return comp.trim().split(/\s+/).map((c) => replaceCaret(c, options)).join(" ");
+	};
+	const replaceCaret = (comp, options) => {
+		debug("caret", comp, options);
+		const r = options.loose ? re[t.CARETLOOSE] : re[t.CARET];
+		const z = options.includePrerelease ? "-0" : "";
+		return comp.replace(r, (_, M, m, p, pr) => {
+			debug("caret", comp, _, M, m, p, pr);
+			let ret;
+			if (isX(M)) ret = "";
+			else if (isX(m)) ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`;
+			else if (isX(p)) if (M === "0") ret = `>=${M}.${m}.0${z} <${M}.${+m + 1}.0-0`;
+			else ret = `>=${M}.${m}.0${z} <${+M + 1}.0.0-0`;
+			else if (pr) {
+				debug("replaceCaret pr", pr);
+				if (M === "0") if (m === "0") ret = `>=${M}.${m}.${p}-${pr} <${M}.${m}.${+p + 1}-0`;
+				else ret = `>=${M}.${m}.${p}-${pr} <${M}.${+m + 1}.0-0`;
+				else ret = `>=${M}.${m}.${p}-${pr} <${+M + 1}.0.0-0`;
+			} else {
+				debug("no pr");
+				if (M === "0") if (m === "0") ret = `>=${M}.${m}.${p}${z} <${M}.${m}.${+p + 1}-0`;
+				else ret = `>=${M}.${m}.${p}${z} <${M}.${+m + 1}.0-0`;
+				else ret = `>=${M}.${m}.${p} <${+M + 1}.0.0-0`;
+			}
+			debug("caret return", ret);
+			return ret;
+		});
+	};
+	const replaceXRanges = (comp, options) => {
+		debug("replaceXRanges", comp, options);
+		return comp.split(/\s+/).map((c) => replaceXRange(c, options)).join(" ");
+	};
+	const replaceXRange = (comp, options) => {
+		comp = comp.trim();
+		const r = options.loose ? re[t.XRANGELOOSE] : re[t.XRANGE];
+		return comp.replace(r, (ret, gtlt, M, m, p, pr) => {
+			debug("xRange", comp, ret, gtlt, M, m, p, pr);
+			const xM = isX(M);
+			const xm = xM || isX(m);
+			const xp = xm || isX(p);
+			const anyX = xp;
+			if (gtlt === "=" && anyX) gtlt = "";
+			pr = options.includePrerelease ? "-0" : "";
+			if (xM) if (gtlt === ">" || gtlt === "<") ret = "<0.0.0-0";
+			else ret = "*";
+			else if (gtlt && anyX) {
+				if (xm) m = 0;
+				p = 0;
+				if (gtlt === ">") {
+					gtlt = ">=";
+					if (xm) {
+						M = +M + 1;
+						m = 0;
+						p = 0;
+					} else {
+						m = +m + 1;
+						p = 0;
+					}
+				} else if (gtlt === "<=") {
+					gtlt = "<";
+					if (xm) M = +M + 1;
+					else m = +m + 1;
+				}
+				if (gtlt === "<") pr = "-0";
+				ret = `${gtlt + M}.${m}.${p}${pr}`;
+			} else if (xm) ret = `>=${M}.0.0${pr} <${+M + 1}.0.0-0`;
+			else if (xp) ret = `>=${M}.${m}.0${pr} <${M}.${+m + 1}.0-0`;
+			debug("xRange return", ret);
+			return ret;
+		});
+	};
+	const replaceStars = (comp, options) => {
+		debug("replaceStars", comp, options);
+		return comp.trim().replace(re[t.STAR], "");
+	};
+	const replaceGTE0 = (comp, options) => {
+		debug("replaceGTE0", comp, options);
+		return comp.trim().replace(re[options.includePrerelease ? t.GTE0PRE : t.GTE0], "");
+	};
+	const hyphenReplace = (incPr) => ($0, from, fM, fm, fp, fpr, fb, to, tM, tm, tp, tpr) => {
+		if (isX(fM)) from = "";
+		else if (isX(fm)) from = `>=${fM}.0.0${incPr ? "-0" : ""}`;
+		else if (isX(fp)) from = `>=${fM}.${fm}.0${incPr ? "-0" : ""}`;
+		else if (fpr) from = `>=${from}`;
+		else from = `>=${from}${incPr ? "-0" : ""}`;
+		if (isX(tM)) to = "";
+		else if (isX(tm)) to = `<${+tM + 1}.0.0-0`;
+		else if (isX(tp)) to = `<${tM}.${+tm + 1}.0-0`;
+		else if (tpr) to = `<=${tM}.${tm}.${tp}-${tpr}`;
+		else if (incPr) to = `<${tM}.${tm}.${+tp + 1}-0`;
+		else to = `<=${to}`;
+		return `${from} ${to}`.trim();
+	};
+	const testSet = (set, version, options) => {
+		for (let i = 0; i < set.length; i++) if (!set[i].test(version)) return false;
+		if (version.prerelease.length && !options.includePrerelease) {
+			for (let i = 0; i < set.length; i++) {
+				debug(set[i].semver);
+				if (set[i].semver === Comparator.ANY) continue;
+				if (set[i].semver.prerelease.length > 0) {
+					const allowed = set[i].semver;
+					if (allowed.major === version.major && allowed.minor === version.minor && allowed.patch === version.patch) return true;
+				}
+			}
+			return false;
+		}
+		return true;
+	};
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/classes/comparator.js
+var require_comparator = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const ANY = Symbol("SemVer ANY");
+	module.exports = class Comparator {
+		static get ANY() {
+			return ANY;
+		}
+		constructor(comp, options) {
+			options = parseOptions(options);
+			if (comp instanceof Comparator) if (comp.loose === !!options.loose) return comp;
+			else comp = comp.value;
+			comp = comp.trim().split(/\s+/).join(" ");
+			debug("comparator", comp, options);
+			this.options = options;
+			this.loose = !!options.loose;
+			this.parse(comp);
+			if (this.semver === ANY) this.value = "";
+			else this.value = this.operator + this.semver.version;
+			debug("comp", this);
+		}
+		parse(comp) {
+			const r = this.options.loose ? re[t.COMPARATORLOOSE] : re[t.COMPARATOR];
+			const m = comp.match(r);
+			if (!m) throw new TypeError(`Invalid comparator: ${comp}`);
+			this.operator = m[1] !== void 0 ? m[1] : "";
+			if (this.operator === "=") this.operator = "";
+			if (!m[2]) this.semver = ANY;
+			else this.semver = new SemVer(m[2], this.options.loose);
+		}
+		toString() {
+			return this.value;
+		}
+		test(version) {
+			debug("Comparator.test", version, this.options.loose);
+			if (this.semver === ANY || version === ANY) return true;
+			if (typeof version === "string") try {
+				version = new SemVer(version, this.options);
+			} catch (er) {
+				return false;
+			}
+			return cmp(version, this.operator, this.semver, this.options);
+		}
+		intersects(comp, options) {
+			if (!(comp instanceof Comparator)) throw new TypeError("a Comparator is required");
+			if (this.operator === "") {
+				if (this.value === "") return true;
+				return new Range(comp.value, options).test(this.value);
+			} else if (comp.operator === "") {
+				if (comp.value === "") return true;
+				return new Range(this.value, options).test(comp.semver);
+			}
+			options = parseOptions(options);
+			if (options.includePrerelease && (this.value === "<0.0.0-0" || comp.value === "<0.0.0-0")) return false;
+			if (!options.includePrerelease && (this.value.startsWith("<0.0.0") || comp.value.startsWith("<0.0.0"))) return false;
+			if (this.operator.startsWith(">") && comp.operator.startsWith(">")) return true;
+			if (this.operator.startsWith("<") && comp.operator.startsWith("<")) return true;
+			if (this.semver.version === comp.semver.version && this.operator.includes("=") && comp.operator.includes("=")) return true;
+			if (cmp(this.semver, "<", comp.semver, options) && this.operator.startsWith(">") && comp.operator.startsWith("<")) return true;
+			if (cmp(this.semver, ">", comp.semver, options) && this.operator.startsWith("<") && comp.operator.startsWith(">")) return true;
+			return false;
+		}
+	};
+	const parseOptions = require_parse_options();
+	const { safeRe: re, t } = require_re();
+	const cmp = require_cmp();
+	const debug = require_debug();
+	const SemVer = require_semver$1();
+	const Range = require_range();
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/functions/satisfies.js
+var require_satisfies = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const Range = require_range();
+	const satisfies = (version, range, options) => {
+		try {
+			range = new Range(range, options);
+		} catch (er) {
+			return false;
+		}
+		return range.test(version);
+	};
+	module.exports = satisfies;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/to-comparators.js
+var require_to_comparators = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const Range = require_range();
+	const toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
+	module.exports = toComparators;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/max-satisfying.js
+var require_max_satisfying = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const Range = require_range();
+	const maxSatisfying = (versions, range, options) => {
+		let max = null;
+		let maxSV = null;
+		let rangeObj = null;
+		try {
+			rangeObj = new Range(range, options);
+		} catch (er) {
+			return null;
+		}
+		versions.forEach((v) => {
+			if (rangeObj.test(v)) {
+				if (!max || maxSV.compare(v) === -1) {
+					max = v;
+					maxSV = new SemVer(max, options);
+				}
+			}
+		});
+		return max;
+	};
+	module.exports = maxSatisfying;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/min-satisfying.js
+var require_min_satisfying = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const Range = require_range();
+	const minSatisfying = (versions, range, options) => {
+		let min = null;
+		let minSV = null;
+		let rangeObj = null;
+		try {
+			rangeObj = new Range(range, options);
+		} catch (er) {
+			return null;
+		}
+		versions.forEach((v) => {
+			if (rangeObj.test(v)) {
+				if (!min || minSV.compare(v) === 1) {
+					min = v;
+					minSV = new SemVer(min, options);
+				}
+			}
+		});
+		return min;
+	};
+	module.exports = minSatisfying;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/min-version.js
+var require_min_version = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const Range = require_range();
+	const gt = require_gt();
+	const minVersion = (range, loose) => {
+		range = new Range(range, loose);
+		let minver = new SemVer("0.0.0");
+		if (range.test(minver)) return minver;
+		minver = new SemVer("0.0.0-0");
+		if (range.test(minver)) return minver;
+		minver = null;
+		for (let i = 0; i < range.set.length; ++i) {
+			const comparators = range.set[i];
+			let setMin = null;
+			comparators.forEach((comparator) => {
+				const compver = new SemVer(comparator.semver.version);
+				switch (comparator.operator) {
+					case ">":
+						if (compver.prerelease.length === 0) compver.patch++;
+						else compver.prerelease.push(0);
+						compver.raw = compver.format();
+					case "":
+					case ">=":
+						if (!setMin || gt(compver, setMin)) setMin = compver;
+						break;
+					case "<":
+					case "<=": break;
+					/* istanbul ignore next */
+					default: throw new Error(`Unexpected operation: ${comparator.operator}`);
+				}
+			});
+			if (setMin && (!minver || gt(minver, setMin))) minver = setMin;
+		}
+		if (minver && range.test(minver)) return minver;
+		return null;
+	};
+	module.exports = minVersion;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/valid.js
+var require_valid = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const Range = require_range();
+	const validRange = (range, options) => {
+		try {
+			return new Range(range, options).range || "*";
+		} catch (er) {
+			return null;
+		}
+	};
+	module.exports = validRange;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/outside.js
+var require_outside = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const SemVer = require_semver$1();
+	const Comparator = require_comparator();
+	const { ANY } = Comparator;
+	const Range = require_range();
+	const satisfies = require_satisfies();
+	const gt = require_gt();
+	const lt = require_lt();
+	const lte = require_lte();
+	const gte = require_gte();
+	const outside = (version, range, hilo, options) => {
+		version = new SemVer(version, options);
+		range = new Range(range, options);
+		let gtfn, ltefn, ltfn, comp, ecomp;
+		switch (hilo) {
+			case ">":
+				gtfn = gt;
+				ltefn = lte;
+				ltfn = lt;
+				comp = ">";
+				ecomp = ">=";
+				break;
+			case "<":
+				gtfn = lt;
+				ltefn = gte;
+				ltfn = gt;
+				comp = "<";
+				ecomp = "<=";
+				break;
+			default: throw new TypeError("Must provide a hilo val of \"<\" or \">\"");
+		}
+		if (satisfies(version, range, options)) return false;
+		for (let i = 0; i < range.set.length; ++i) {
+			const comparators = range.set[i];
+			let high = null;
+			let low = null;
+			comparators.forEach((comparator) => {
+				if (comparator.semver === ANY) comparator = new Comparator(">=0.0.0");
+				high = high || comparator;
+				low = low || comparator;
+				if (gtfn(comparator.semver, high.semver, options)) high = comparator;
+				else if (ltfn(comparator.semver, low.semver, options)) low = comparator;
+			});
+			if (high.operator === comp || high.operator === ecomp) return false;
+			if ((!low.operator || low.operator === comp) && ltefn(version, low.semver)) return false;
+			else if (low.operator === ecomp && ltfn(version, low.semver)) return false;
+		}
+		return true;
+	};
+	module.exports = outside;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/gtr.js
+var require_gtr = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const outside = require_outside();
+	const gtr = (version, range, options) => outside(version, range, ">", options);
+	module.exports = gtr;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/ltr.js
+var require_ltr = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const outside = require_outside();
+	const ltr = (version, range, options) => outside(version, range, "<", options);
+	module.exports = ltr;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/intersects.js
+var require_intersects = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const Range = require_range();
+	const intersects = (r1, r2, options) => {
+		r1 = new Range(r1, options);
+		r2 = new Range(r2, options);
+		return r1.intersects(r2, options);
+	};
+	module.exports = intersects;
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/simplify.js
+var require_simplify = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const satisfies = require_satisfies();
+	const compare = require_compare();
+	module.exports = (versions, range, options) => {
+		const set = [];
+		let first = null;
+		let prev = null;
+		const v = versions.sort((a, b) => compare(a, b, options));
+		for (const version of v) if (satisfies(version, range, options)) {
+			prev = version;
+			if (!first) first = version;
+		} else {
+			if (prev) set.push([first, prev]);
+			prev = null;
+			first = null;
+		}
+		if (first) set.push([first, null]);
+		const ranges = [];
+		for (const [min, max] of set) if (min === max) ranges.push(min);
+		else if (!max && min === v[0]) ranges.push("*");
+		else if (!max) ranges.push(`>=${min}`);
+		else if (min === v[0]) ranges.push(`<=${max}`);
+		else ranges.push(`${min} - ${max}`);
+		const simplified = ranges.join(" || ");
+		const original = typeof range.raw === "string" ? range.raw : String(range);
+		return simplified.length < original.length ? simplified : range;
+	};
+}));
+//#endregion
+//#region node_modules/.pnpm/semver@7.8.1/node_modules/semver/ranges/subset.js
+var require_subset = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const Range = require_range();
+	const Comparator = require_comparator();
+	const { ANY } = Comparator;
+	const satisfies = require_satisfies();
+	const compare = require_compare();
+	const subset = (sub, dom, options = {}) => {
+		if (sub === dom) return true;
+		sub = new Range(sub, options);
+		dom = new Range(dom, options);
+		let sawNonNull = false;
+		OUTER: for (const simpleSub of sub.set) {
+			for (const simpleDom of dom.set) {
+				const isSub = simpleSubset(simpleSub, simpleDom, options);
+				sawNonNull = sawNonNull || isSub !== null;
+				if (isSub) continue OUTER;
+			}
+			if (sawNonNull) return false;
+		}
+		return true;
+	};
+	const minimumVersionWithPreRelease = [new Comparator(">=0.0.0-0")];
+	const minimumVersion = [new Comparator(">=0.0.0")];
+	const simpleSubset = (sub, dom, options) => {
+		if (sub === dom) return true;
+		if (sub.length === 1 && sub[0].semver === ANY) if (dom.length === 1 && dom[0].semver === ANY) return true;
+		else if (options.includePrerelease) sub = minimumVersionWithPreRelease;
+		else sub = minimumVersion;
+		if (dom.length === 1 && dom[0].semver === ANY) if (options.includePrerelease) return true;
+		else dom = minimumVersion;
+		const eqSet = /* @__PURE__ */ new Set();
+		let gt, lt;
+		for (const c of sub) if (c.operator === ">" || c.operator === ">=") gt = higherGT(gt, c, options);
+		else if (c.operator === "<" || c.operator === "<=") lt = lowerLT(lt, c, options);
+		else eqSet.add(c.semver);
+		if (eqSet.size > 1) return null;
+		let gtltComp;
+		if (gt && lt) {
+			gtltComp = compare(gt.semver, lt.semver, options);
+			if (gtltComp > 0) return null;
+			else if (gtltComp === 0 && (gt.operator !== ">=" || lt.operator !== "<=")) return null;
+		}
+		for (const eq of eqSet) {
+			if (gt && !satisfies(eq, String(gt), options)) return null;
+			if (lt && !satisfies(eq, String(lt), options)) return null;
+			for (const c of dom) if (!satisfies(eq, String(c), options)) return false;
+			return true;
+		}
+		let higher, lower;
+		let hasDomLT, hasDomGT;
+		let needDomLTPre = lt && !options.includePrerelease && lt.semver.prerelease.length ? lt.semver : false;
+		let needDomGTPre = gt && !options.includePrerelease && gt.semver.prerelease.length ? gt.semver : false;
+		if (needDomLTPre && needDomLTPre.prerelease.length === 1 && lt.operator === "<" && needDomLTPre.prerelease[0] === 0) needDomLTPre = false;
+		for (const c of dom) {
+			hasDomGT = hasDomGT || c.operator === ">" || c.operator === ">=";
+			hasDomLT = hasDomLT || c.operator === "<" || c.operator === "<=";
+			if (gt) {
+				if (needDomGTPre) {
+					if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomGTPre.major && c.semver.minor === needDomGTPre.minor && c.semver.patch === needDomGTPre.patch) needDomGTPre = false;
+				}
+				if (c.operator === ">" || c.operator === ">=") {
+					higher = higherGT(gt, c, options);
+					if (higher === c && higher !== gt) return false;
+				} else if (gt.operator === ">=" && !c.test(gt.semver)) return false;
+			}
+			if (lt) {
+				if (needDomLTPre) {
+					if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomLTPre.major && c.semver.minor === needDomLTPre.minor && c.semver.patch === needDomLTPre.patch) needDomLTPre = false;
+				}
+				if (c.operator === "<" || c.operator === "<=") {
+					lower = lowerLT(lt, c, options);
+					if (lower === c && lower !== lt) return false;
+				} else if (lt.operator === "<=" && !c.test(lt.semver)) return false;
+			}
+			if (!c.operator && (lt || gt) && gtltComp !== 0) return false;
+		}
+		if (gt && hasDomLT && !lt && gtltComp !== 0) return false;
+		if (lt && hasDomGT && !gt && gtltComp !== 0) return false;
+		if (needDomGTPre || needDomLTPre) return false;
+		return true;
+	};
+	const higherGT = (a, b, options) => {
+		if (!a) return b;
+		const comp = compare(a.semver, b.semver, options);
+		return comp > 0 ? a : comp < 0 ? b : b.operator === ">" && a.operator === ">=" ? b : a;
+	};
+	const lowerLT = (a, b, options) => {
+		if (!a) return b;
+		const comp = compare(a.semver, b.semver, options);
+		return comp < 0 ? a : comp > 0 ? b : b.operator === "<" && a.operator === "<=" ? b : a;
+	};
+	module.exports = subset;
+}));
+//#endregion
+//#region node_modules/.pnpm/@actions+tool-cache@4.0.0/node_modules/@actions/tool-cache/lib/manifest.js
+var import_semver = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((exports, module) => {
+	const internalRe = require_re();
+	const constants = require_constants();
+	const SemVer = require_semver$1();
+	const identifiers = require_identifiers();
+	module.exports = {
+		parse: require_parse(),
+		valid: require_valid$1(),
+		clean: require_clean(),
+		inc: require_inc(),
+		diff: require_diff(),
+		major: require_major(),
+		minor: require_minor(),
+		patch: require_patch(),
+		prerelease: require_prerelease(),
+		compare: require_compare(),
+		rcompare: require_rcompare(),
+		compareLoose: require_compare_loose(),
+		compareBuild: require_compare_build(),
+		sort: require_sort(),
+		rsort: require_rsort(),
+		gt: require_gt(),
+		lt: require_lt(),
+		eq: require_eq(),
+		neq: require_neq(),
+		gte: require_gte(),
+		lte: require_lte(),
+		cmp: require_cmp(),
+		coerce: require_coerce(),
+		truncate: require_truncate(),
+		Comparator: require_comparator(),
+		Range: require_range(),
+		satisfies: require_satisfies(),
+		toComparators: require_to_comparators(),
+		maxSatisfying: require_max_satisfying(),
+		minSatisfying: require_min_satisfying(),
+		minVersion: require_min_version(),
+		validRange: require_valid(),
+		outside: require_outside(),
+		gtr: require_gtr(),
+		ltr: require_ltr(),
+		intersects: require_intersects(),
+		simplifyRange: require_simplify(),
+		subset: require_subset(),
+		SemVer,
+		re: internalRe.re,
+		src: internalRe.src,
+		tokens: internalRe.t,
+		SEMVER_SPEC_VERSION: constants.SEMVER_SPEC_VERSION,
+		RELEASE_TYPES: constants.RELEASE_TYPES,
+		compareIdentifiers: identifiers.compareIdentifiers,
+		rcompareIdentifiers: identifiers.rcompareIdentifiers
 	};
 })))(), 1);
+//#endregion
+//#region node_modules/.pnpm/@actions+tool-cache@4.0.0/node_modules/@actions/tool-cache/lib/retry-helper.js
+var __awaiter$1 = function(thisArg, _arguments, P, generator) {
+	function adopt(value) {
+		return value instanceof P ? value : new P(function(resolve) {
+			resolve(value);
+		});
+	}
+	return new (P || (P = Promise))(function(resolve, reject) {
+		function fulfilled(value) {
+			try {
+				step(generator.next(value));
+			} catch (e) {
+				reject(e);
+			}
+		}
+		function rejected(value) {
+			try {
+				step(generator["throw"](value));
+			} catch (e) {
+				reject(e);
+			}
+		}
+		function step(result) {
+			result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+		}
+		step((generator = generator.apply(thisArg, _arguments || [])).next());
+	});
+};
+/**
+* Internal class for retries
+*/
+var RetryHelper = class {
+	constructor(maxAttempts, minSeconds, maxSeconds) {
+		if (maxAttempts < 1) throw new Error("max attempts should be greater than or equal to 1");
+		this.maxAttempts = maxAttempts;
+		this.minSeconds = Math.floor(minSeconds);
+		this.maxSeconds = Math.floor(maxSeconds);
+		if (this.minSeconds > this.maxSeconds) throw new Error("min seconds should be less than or equal to max seconds");
+	}
+	execute(action, isRetryable) {
+		return __awaiter$1(this, void 0, void 0, function* () {
+			let attempt = 1;
+			while (attempt < this.maxAttempts) {
+				try {
+					return yield action();
+				} catch (err) {
+					if (isRetryable && !isRetryable(err)) throw err;
+					info(err.message);
+				}
+				const seconds = this.getSleepAmount();
+				info(`Waiting ${seconds} seconds before trying again`);
+				yield this.sleep(seconds);
+				attempt++;
+			}
+			return yield action();
+		});
+	}
+	getSleepAmount() {
+		return Math.floor(Math.random() * (this.maxSeconds - this.minSeconds + 1)) + this.minSeconds;
+	}
+	sleep(seconds) {
+		return __awaiter$1(this, void 0, void 0, function* () {
+			return new Promise((resolve) => setTimeout(resolve, seconds * 1e3));
+		});
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/@actions+tool-cache@4.0.0/node_modules/@actions/tool-cache/lib/tool-cache.js
+var __awaiter = function(thisArg, _arguments, P, generator) {
+	function adopt(value) {
+		return value instanceof P ? value : new P(function(resolve) {
+			resolve(value);
+		});
+	}
+	return new (P || (P = Promise))(function(resolve, reject) {
+		function fulfilled(value) {
+			try {
+				step(generator.next(value));
+			} catch (e) {
+				reject(e);
+			}
+		}
+		function rejected(value) {
+			try {
+				step(generator["throw"](value));
+			} catch (e) {
+				reject(e);
+			}
+		}
+		function step(result) {
+			result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+		}
+		step((generator = generator.apply(thisArg, _arguments || [])).next());
+	});
+};
+var HTTPError = class extends Error {
+	constructor(httpStatusCode) {
+		super(`Unexpected HTTP response: ${httpStatusCode}`);
+		this.httpStatusCode = httpStatusCode;
+		Object.setPrototypeOf(this, new.target.prototype);
+	}
+};
+const IS_WINDOWS = process.platform === "win32";
+process.platform;
+const userAgent = "actions/tool-cache";
+/**
+* Download a tool from an url and stream it into a file
+*
+* @param url       url of tool to download
+* @param dest      path to download tool
+* @param auth      authorization header
+* @param headers   other headers
+* @returns         path to downloaded tool
+*/
+function downloadTool(url, dest, auth, headers) {
+	return __awaiter(this, void 0, void 0, function* () {
+		dest = dest || path$1.join(_getTempDirectory(), crypto.randomUUID());
+		yield mkdirP(path$1.dirname(dest));
+		debug(`Downloading ${url}`);
+		debug(`Destination ${dest}`);
+		return yield new RetryHelper(3, _getGlobal("TEST_DOWNLOAD_TOOL_RETRY_MIN_SECONDS", 10), _getGlobal("TEST_DOWNLOAD_TOOL_RETRY_MAX_SECONDS", 20)).execute(() => __awaiter(this, void 0, void 0, function* () {
+			return yield downloadToolAttempt(url, dest || "", auth, headers);
+		}), (err) => {
+			if (err instanceof HTTPError && err.httpStatusCode) {
+				if (err.httpStatusCode < 500 && err.httpStatusCode !== 408 && err.httpStatusCode !== 429) return false;
+			}
+			return true;
+		});
+	});
+}
+function downloadToolAttempt(url, dest, auth, headers) {
+	return __awaiter(this, void 0, void 0, function* () {
+		if (fs$1.existsSync(dest)) throw new Error(`Destination file path ${dest} already exists`);
+		const http = new HttpClient(userAgent, [], { allowRetries: false });
+		if (auth) {
+			debug("set auth");
+			if (headers === void 0) headers = {};
+			headers.authorization = auth;
+		}
+		const response = yield http.get(url, headers);
+		if (response.message.statusCode !== 200) {
+			const err = new HTTPError(response.message.statusCode);
+			debug(`Failed to download from "${url}". Code(${response.message.statusCode}) Message(${response.message.statusMessage})`);
+			throw err;
+		}
+		const pipeline = util.promisify(stream.pipeline);
+		const readStream = _getGlobal("TEST_DOWNLOAD_TOOL_RESPONSE_MESSAGE_FACTORY", () => response.message)();
+		let succeeded = false;
+		try {
+			yield pipeline(readStream, fs$1.createWriteStream(dest));
+			debug("download complete");
+			succeeded = true;
+			return dest;
+		} finally {
+			if (!succeeded) {
+				debug("download failed");
+				try {
+					yield rmRF(dest);
+				} catch (err) {
+					debug(`Failed to delete '${dest}'. ${err.message}`);
+				}
+			}
+		}
+	});
+}
+/**
+* Extract a zip
+*
+* @param file     path to the zip
+* @param dest     destination directory. Optional.
+* @returns        path to the destination directory
+*/
+function extractZip(file, dest) {
+	return __awaiter(this, void 0, void 0, function* () {
+		if (!file) throw new Error("parameter 'file' is required");
+		dest = yield _createExtractFolder(dest);
+		if (IS_WINDOWS) yield extractZipWin(file, dest);
+		else yield extractZipNix(file, dest);
+		return dest;
+	});
+}
+function extractZipWin(file, dest) {
+	return __awaiter(this, void 0, void 0, function* () {
+		const escapedFile = file.replace(/'/g, "''").replace(/"|\n|\r/g, "");
+		const escapedDest = dest.replace(/'/g, "''").replace(/"|\n|\r/g, "");
+		const pwshPath = yield which("pwsh", false);
+		if (pwshPath) {
+			const args = [
+				"-NoLogo",
+				"-NoProfile",
+				"-NonInteractive",
+				"-ExecutionPolicy",
+				"Unrestricted",
+				"-Command",
+				[
+					`$ErrorActionPreference = 'Stop' ;`,
+					`try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ;`,
+					`try { [System.IO.Compression.ZipFile]::ExtractToDirectory('${escapedFile}', '${escapedDest}', $true) }`,
+					`catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath '${escapedFile}' -DestinationPath '${escapedDest}' -Force } else { throw $_ } } ;`
+				].join(" ")
+			];
+			debug(`Using pwsh at path: ${pwshPath}`);
+			yield exec(`"${pwshPath}"`, args);
+		} else {
+			const args = [
+				"-NoLogo",
+				"-Sta",
+				"-NoProfile",
+				"-NonInteractive",
+				"-ExecutionPolicy",
+				"Unrestricted",
+				"-Command",
+				[
+					`$ErrorActionPreference = 'Stop' ;`,
+					`try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch { } ;`,
+					`if ((Get-Command -Name Expand-Archive -Module Microsoft.PowerShell.Archive -ErrorAction Ignore)) { Expand-Archive -LiteralPath '${escapedFile}' -DestinationPath '${escapedDest}' -Force }`,
+					`else {[System.IO.Compression.ZipFile]::ExtractToDirectory('${escapedFile}', '${escapedDest}', $true) }`
+				].join(" ")
+			];
+			const powershellPath = yield which("powershell", true);
+			debug(`Using powershell at path: ${powershellPath}`);
+			yield exec(`"${powershellPath}"`, args);
+		}
+	});
+}
+function extractZipNix(file, dest) {
+	return __awaiter(this, void 0, void 0, function* () {
+		const unzipPath = yield which("unzip", true);
+		const args = [file];
+		if (!isDebug()) args.unshift("-q");
+		args.unshift("-o");
+		yield exec(`"${unzipPath}"`, args, { cwd: dest });
+	});
+}
+/**
+* Caches a directory and installs it into the tool cacheDir
+*
+* @param sourceDir    the directory to cache into tools
+* @param tool          tool name
+* @param version       version of the tool.  semver format
+* @param arch          architecture of the tool.  Optional.  Defaults to machine architecture
+*/
+function cacheDir(sourceDir, tool, version, arch) {
+	return __awaiter(this, void 0, void 0, function* () {
+		version = import_semver.clean(version) || version;
+		arch = arch || os$2.arch();
+		debug(`Caching tool ${tool} ${version} ${arch}`);
+		debug(`source dir: ${sourceDir}`);
+		if (!fs$1.statSync(sourceDir).isDirectory()) throw new Error("sourceDir is not a directory");
+		const destPath = yield _createToolPath(tool, version, arch);
+		for (const itemName of fs$1.readdirSync(sourceDir)) yield cp(path$1.join(sourceDir, itemName), destPath, { recursive: true });
+		_completeToolPath(tool, version, arch);
+		return destPath;
+	});
+}
+/**
+* Finds the path to a tool version in the local installed tool cache
+*
+* @param toolName      name of the tool
+* @param versionSpec   version of the tool
+* @param arch          optional arch.  defaults to arch of computer
+*/
+function find(toolName, versionSpec, arch) {
+	if (!toolName) throw new Error("toolName parameter is required");
+	if (!versionSpec) throw new Error("versionSpec parameter is required");
+	arch = arch || os$2.arch();
+	if (!isExplicitVersion(versionSpec)) versionSpec = evaluateVersions(findAllVersions(toolName, arch), versionSpec);
+	let toolPath = "";
+	if (versionSpec) {
+		versionSpec = import_semver.clean(versionSpec) || "";
+		const cachePath = path$1.join(_getCacheDirectory(), toolName, versionSpec, arch);
+		debug(`checking cache: ${cachePath}`);
+		if (fs$1.existsSync(cachePath) && fs$1.existsSync(`${cachePath}.complete`)) {
+			debug(`Found tool in cache ${toolName} ${versionSpec} ${arch}`);
+			toolPath = cachePath;
+		} else debug("not found");
+	}
+	return toolPath;
+}
+/**
+* Finds the paths to all versions of a tool that are installed in the local tool cache
+*
+* @param toolName  name of the tool
+* @param arch      optional arch.  defaults to arch of computer
+*/
+function findAllVersions(toolName, arch) {
+	const versions = [];
+	arch = arch || os$2.arch();
+	const toolPath = path$1.join(_getCacheDirectory(), toolName);
+	if (fs$1.existsSync(toolPath)) {
+		const children = fs$1.readdirSync(toolPath);
+		for (const child of children) if (isExplicitVersion(child)) {
+			const fullPath = path$1.join(toolPath, child, arch || "");
+			if (fs$1.existsSync(fullPath) && fs$1.existsSync(`${fullPath}.complete`)) versions.push(child);
+		}
+	}
+	return versions;
+}
+function _createExtractFolder(dest) {
+	return __awaiter(this, void 0, void 0, function* () {
+		if (!dest) dest = path$1.join(_getTempDirectory(), crypto.randomUUID());
+		yield mkdirP(dest);
+		return dest;
+	});
+}
+function _createToolPath(tool, version, arch) {
+	return __awaiter(this, void 0, void 0, function* () {
+		const folderPath = path$1.join(_getCacheDirectory(), tool, import_semver.clean(version) || version, arch || "");
+		debug(`destination ${folderPath}`);
+		const markerPath = `${folderPath}.complete`;
+		yield rmRF(folderPath);
+		yield rmRF(markerPath);
+		yield mkdirP(folderPath);
+		return folderPath;
+	});
+}
+function _completeToolPath(tool, version, arch) {
+	const markerPath = `${path$1.join(_getCacheDirectory(), tool, import_semver.clean(version) || version, arch || "")}.complete`;
+	fs$1.writeFileSync(markerPath, "");
+	debug("finished caching tool");
+}
+/**
+* Check if version string is explicit
+*
+* @param versionSpec      version string to check
+*/
+function isExplicitVersion(versionSpec) {
+	const c = import_semver.clean(versionSpec) || "";
+	debug(`isExplicit: ${c}`);
+	const valid = import_semver.valid(c) != null;
+	debug(`explicit? ${valid}`);
+	return valid;
+}
+/**
+* Get the highest satisfiying semantic version in `versions` which satisfies `versionSpec`
+*
+* @param versions        array of versions to evaluate
+* @param versionSpec     semantic version spec to satisfy
+*/
+function evaluateVersions(versions, versionSpec) {
+	let version = "";
+	debug(`evaluating ${versions.length} versions`);
+	versions = versions.sort((a, b) => {
+		if (import_semver.gt(a, b)) return 1;
+		return -1;
+	});
+	for (let i = versions.length - 1; i >= 0; i--) {
+		const potential = versions[i];
+		if (import_semver.satisfies(potential, versionSpec)) {
+			version = potential;
+			break;
+		}
+	}
+	if (version) debug(`matched: ${version}`);
+	else debug("match not found");
+	return version;
+}
+/**
+* Gets RUNNER_TOOL_CACHE
+*/
+function _getCacheDirectory() {
+	const cacheDirectory = process.env["RUNNER_TOOL_CACHE"] || "";
+	ok(cacheDirectory, "Expected RUNNER_TOOL_CACHE to be defined");
+	return cacheDirectory;
+}
+/**
+* Gets RUNNER_TEMP
+*/
+function _getTempDirectory() {
+	const tempDirectory = process.env["RUNNER_TEMP"] || "";
+	ok(tempDirectory, "Expected RUNNER_TEMP to be defined");
+	return tempDirectory;
+}
+/**
+* Gets a global variable
+*/
+function _getGlobal(key, defaultValue) {
+	const value = global[key];
+	return value !== void 0 ? value : defaultValue;
+}
+//#endregion
+//#region src/main.ts
 const BAIDU_PCS_GO_VERSION = "v4.0.1";
 async function run() {
 	try {
@@ -18915,18 +19125,17 @@ async function run() {
 		const remoteDirectory = getInput("remote-dir", { required: true });
 		const uploadPolicy = getInput("upload-policy") || "skip";
 		const platform = os.platform();
-		const { assetName, downloadUrl } = getAssetNameAndDownloadUrl(platform, os.arch(), BAIDU_PCS_GO_VERSION);
-		const zipPath = path.join(process.cwd(), assetName);
-		info(`Downloading BaiduPCS-Go from: ${downloadUrl}`);
-		await downloadFile(downloadUrl, zipPath);
-		info(`BaiduPCS-Go is downloaded to: ${zipPath}`);
-		const extractDirectory = path.join(process.cwd(), "baidupcs");
-		info(`Extracting BaiduPCS-Go archive to: ${extractDirectory}`);
-		fs.mkdirSync(extractDirectory);
-		new import_adm_zip.default(zipPath).extractAllTo(extractDirectory, true);
-		const exePaths = globSync(platform === "win32" ? "**/BaiduPCS-Go.exe" : "**/BaiduPCS-Go", { cwd: extractDirectory });
-		if (exePaths.length === 0) throw new Error(`Executable not found in path: ${extractDirectory}`);
-		const exePath = path.join(extractDirectory, exePaths[0]);
+		const downloadUrl = getDownloadUrl(platform, os.arch(), BAIDU_PCS_GO_VERSION);
+		let toolDirectory = find("BaiduPCS-Go", BAIDU_PCS_GO_VERSION);
+		if (toolDirectory) info(`Found BaiduPCS-Go in tool cache: ${toolDirectory}`);
+		else {
+			info(`Downloading BaiduPCS-Go from: ${downloadUrl}`);
+			toolDirectory = await cacheDir(await extractZip(await downloadTool(downloadUrl)), "BaiduPCS-Go", BAIDU_PCS_GO_VERSION);
+			info(`BaiduPCS-Go is cached at: ${toolDirectory}`);
+		}
+		const exePaths = globSync(platform === "win32" ? "**/BaiduPCS-Go.exe" : "**/BaiduPCS-Go", { cwd: toolDirectory });
+		if (exePaths.length === 0) throw new Error(`Executable not found in path: ${toolDirectory}`);
+		const exePath = path.join(toolDirectory, exePaths[0]);
 		fs.chmodSync(exePath, fs.constants.S_IRWXU);
 		info("Logging in to Baidu Netdisk");
 		await exec(exePath, [
@@ -18951,7 +19160,7 @@ async function run() {
 		if (error instanceof Error) setFailed(error.message);
 	}
 }
-function getAssetNameAndDownloadUrl(platform, arch, version) {
+function getDownloadUrl(platform, arch, version) {
 	let assetName;
 	switch (platform) {
 		case "win32":
@@ -18980,18 +19189,7 @@ function getAssetNameAndDownloadUrl(platform, arch, version) {
 			break;
 	}
 	if (assetName === void 0) throw new Error(`Unsupported platform and architecture: ${platform} ${arch}`);
-	const downloadUrl = `https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/${version}/${assetName}`;
-	return {
-		assetName,
-		downloadUrl
-	};
-}
-async function downloadFile(url, destination) {
-	const response = await fetch(url);
-	if (!response.ok || !response.body) throw new Error(`Failed to download file: ${response.statusText}`);
-	const fileStream = fs.createWriteStream(destination);
-	Readable.fromWeb(response.body).pipe(fileStream);
-	await finished(fileStream);
+	return `https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/${version}/${assetName}`;
 }
 //#endregion
 //#region src/index.ts
