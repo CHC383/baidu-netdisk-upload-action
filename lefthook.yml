@@ -12,7 +12,7 @@ pre-commit:
       run: pnpm biome:check-fix {staged_files}
       stage_fixed: true
 
-    - name: Check if dist files are up to date
+    - name: Update dist files
       glob: "{src/**/*.ts,package.json}"
-      run: pnpm check-dist
+      run: pnpm package
       stage_fixed: true
