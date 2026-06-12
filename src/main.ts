@@ -8,8 +8,8 @@ import * as core from "@actions/core";
 import { exec } from "@actions/exec";
 import AdmZip from "adm-zip";
 
-// https://github.com/qjfoidnh/BaiduPCS-Go/releases
-const BAIDU_PCS_GO_VERSION = "4.0.1";
+// renovate: datasource=github-releases depName=qjfoidnh/BaiduPCS-Go
+const BAIDU_PCS_GO_VERSION = "v4.0.1";
 
 export async function run(): Promise<void> {
   try {
@@ -99,32 +99,32 @@ function getAssetNameAndDownloadUrl(
   switch (platform) {
     case "win32": {
       if (arch === "x64") {
-        assetName = `BaiduPCS-Go-v${version}-windows-x64.zip`;
+        assetName = `BaiduPCS-Go-${version}-windows-x64.zip`;
       } else if (arch === "arm64") {
-        assetName = `BaiduPCS-Go-v${version}-windows-arm.zip`;
+        assetName = `BaiduPCS-Go-${version}-windows-arm.zip`;
       }
       break;
     }
     case "darwin": {
       if (arch === "arm64") {
-        assetName = `BaiduPCS-Go-v${version}-darwin-osx-arm64.zip`;
+        assetName = `BaiduPCS-Go-${version}-darwin-osx-arm64.zip`;
       } else if (arch === "x64") {
-        assetName = `BaiduPCS-Go-v${version}-darwin-osx-amd64.zip`;
+        assetName = `BaiduPCS-Go-${version}-darwin-osx-amd64.zip`;
       }
       break;
     }
     case "linux": {
       switch (arch) {
         case "x64": {
-          assetName = `BaiduPCS-Go-v${version}-linux-amd64.zip`;
+          assetName = `BaiduPCS-Go-${version}-linux-amd64.zip`;
           break;
         }
         case "arm64": {
-          assetName = `BaiduPCS-Go-v${version}-linux-arm64.zip`;
+          assetName = `BaiduPCS-Go-${version}-linux-arm64.zip`;
           break;
         }
         case "arm": {
-          assetName = `BaiduPCS-Go-v${version}-linux-arm.zip`;
+          assetName = `BaiduPCS-Go-${version}-linux-arm.zip`;
           break;
         }
       }
@@ -132,7 +132,7 @@ function getAssetNameAndDownloadUrl(
     }
     case "freebsd": {
       if (arch === "x64") {
-        assetName = `BaiduPCS-Go-v${version}-freebsd-amd64.zip`;
+        assetName = `BaiduPCS-Go-${version}-freebsd-amd64.zip`;
       }
       break;
     }
@@ -144,7 +144,7 @@ function getAssetNameAndDownloadUrl(
     );
   }
 
-  const downloadUrl = `https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/v${version}/${assetName}`;
+  const downloadUrl = `https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/${version}/${assetName}`;
   return { assetName, downloadUrl };
 }
 

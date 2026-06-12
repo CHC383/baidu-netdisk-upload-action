@@ -18906,7 +18906,7 @@ var import_adm_zip = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((ex
 		};
 	};
 })))(), 1);
-const BAIDU_PCS_GO_VERSION = "4.0.1";
+const BAIDU_PCS_GO_VERSION = "v4.0.1";
 async function run() {
 	try {
 		const bduss = getInput("bduss", { required: true });
@@ -18955,32 +18955,32 @@ function getAssetNameAndDownloadUrl(platform, arch, version) {
 	let assetName;
 	switch (platform) {
 		case "win32":
-			if (arch === "x64") assetName = `BaiduPCS-Go-v${version}-windows-x64.zip`;
-			else if (arch === "arm64") assetName = `BaiduPCS-Go-v${version}-windows-arm.zip`;
+			if (arch === "x64") assetName = `BaiduPCS-Go-${version}-windows-x64.zip`;
+			else if (arch === "arm64") assetName = `BaiduPCS-Go-${version}-windows-arm.zip`;
 			break;
 		case "darwin":
-			if (arch === "arm64") assetName = `BaiduPCS-Go-v${version}-darwin-osx-arm64.zip`;
-			else if (arch === "x64") assetName = `BaiduPCS-Go-v${version}-darwin-osx-amd64.zip`;
+			if (arch === "arm64") assetName = `BaiduPCS-Go-${version}-darwin-osx-arm64.zip`;
+			else if (arch === "x64") assetName = `BaiduPCS-Go-${version}-darwin-osx-amd64.zip`;
 			break;
 		case "linux":
 			switch (arch) {
 				case "x64":
-					assetName = `BaiduPCS-Go-v${version}-linux-amd64.zip`;
+					assetName = `BaiduPCS-Go-${version}-linux-amd64.zip`;
 					break;
 				case "arm64":
-					assetName = `BaiduPCS-Go-v${version}-linux-arm64.zip`;
+					assetName = `BaiduPCS-Go-${version}-linux-arm64.zip`;
 					break;
 				case "arm":
-					assetName = `BaiduPCS-Go-v${version}-linux-arm.zip`;
+					assetName = `BaiduPCS-Go-${version}-linux-arm.zip`;
 					break;
 			}
 			break;
 		case "freebsd":
-			if (arch === "x64") assetName = `BaiduPCS-Go-v${version}-freebsd-amd64.zip`;
+			if (arch === "x64") assetName = `BaiduPCS-Go-${version}-freebsd-amd64.zip`;
 			break;
 	}
 	if (assetName === void 0) throw new Error(`Unsupported platform and architecture: ${platform} ${arch}`);
-	const downloadUrl = `https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/v${version}/${assetName}`;
+	const downloadUrl = `https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/${version}/${assetName}`;
 	return {
 		assetName,
 		downloadUrl
