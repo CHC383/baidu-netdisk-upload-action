@@ -11,14 +11,39 @@ permissions:
   contents: read
 
 concurrency:
-  # One workflow run at a time per branch.
+  # One workflow run at a time per ref. Superseded PR runs are cancelled,
+  # but main runs are queued so an in-progress upload is never killed.
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  dedupe:
+    name: Check for duplicate run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      should_skip: ${{ steps.check.outputs.should_skip }}
+    steps:
+      # Skip a push to main whose tree a previous run already tested
+      # successfully (e.g. the PR run before the merge). Manual dispatches are
+      # never skipped so the integration test can always be forced.
+      - name: Check whether this tree was already tested
+        id: check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          skip_after_successful_duplicate: "true"
+          do_not_skip: '["workflow_dispatch"]'
+          # Concurrency is handled by the workflow `concurrency:` block.
+          concurrent_skipping: "never"
+          cancel_others: "false"
+
   test-typescript:
     name: TypeScript Tests
     runs-on: ubuntu-latest
+    needs: dedupe
+    if: needs.dedupe.outputs.should_skip != 'true'
 
     outputs:
       dist: ${{ steps.filter.outputs.dist }}
@@ -66,12 +91,21 @@ jobs:
     name: GitHub Actions Test
     runs-on: ubuntu-latest
     needs: test-typescript
-    # Run on manual dispatch, or when dist or workflow has been changed on a PR with write permissions
+    # When to run the integration test (it logs into Baidu with repo secrets):
+    #   - workflow_dispatch: always, so it can be triggered manually.
+    #   - push to main: when dist or the workflow changed. Duplicate pushes are
+    #     filtered upstream by the dedupe gate skipping test-typescript.
+    #   - pull_request: only from a branch in this repo, and not from Dependabot.
+    #     Fork PRs and Dependabot PRs (including its security updates) run in a
+    #     restricted context without access to the BDUSS/STOKEN secrets, so the
+    #     login/upload would fail. Renovate PRs come from in-repo branches and
+    #     keep secret access, so they do run.
     if: |
       github.event_name == 'workflow_dispatch' ||
       ((needs.test-typescript.outputs.dist == 'true' || needs.test-typescript.outputs.ci == 'true') &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.actor != 'dependabot[bot]')
+      (github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]')))
 
     steps:
       - name: Checkout
