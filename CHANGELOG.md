@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.6.0](https://github.com/CHC383/baidu-netdisk-upload-action/compare/v1.5.0...v1.6.0) (2026-06-13)
+
+
+### 🎉 Features
+
+* **download:** use @actions/tool-cache to manage the BaiduPCS-Go binary ([e28f899](https://github.com/CHC383/baidu-netdisk-upload-action/commit/e28f8992dfb4582967c83bcabaca0045981c89c3))
+
+
+### 🔧 Maintenance / Chores
+
+* **hook:** update git hook to update dist automatically ([500626d](https://github.com/CHC383/baidu-netdisk-upload-action/commit/500626d0038663aa0fbfeb3c2907de81c2bcfb85))
+* **lint:** remove obsolete lint-stage config ([56137d1](https://github.com/CHC383/baidu-netdisk-upload-action/commit/56137d1b0b4da79ed47154b018767ee0d01493ee))
+* **renovate:** make BAIDU_PCS_GO_VERSION Renovate upgradable ([0b8a3dc](https://github.com/CHC383/baidu-netdisk-upload-action/commit/0b8a3dcdb5f3230dc3b326d5de6474c009d7f9de))
+
+
+### 👷 Continuous Integration
+
+* **release-please:** exclude package name from tag ([8bccfbd](https://github.com/CHC383/baidu-netdisk-upload-action/commit/8bccfbd0d6115ae5bf46be4f2a444ccdc0db03e9))
+* **release-please:** only tag major version ([fc8686b](https://github.com/CHC383/baidu-netdisk-upload-action/commit/fc8686bbeba9fe7e9858619d536699129dcd7c7a))
+* **release-please:** tag major.minor.patch instead of major.minor ([8d66ac0](https://github.com/CHC383/baidu-netdisk-upload-action/commit/8d66ac0920007ad3c42a280ef52f882c0e9f4850))
+* **release-please:** update workflow ([f7dc8d3](https://github.com/CHC383/baidu-netdisk-upload-action/commit/f7dc8d38e0effa0a7d581b6cc3f41f84cdac7001))
+* **workflow:** add a workflow to update dist on Renovate's PR ([e80e1a5](https://github.com/CHC383/baidu-netdisk-upload-action/commit/e80e1a551f332feb714ed541dd63144e46ea949c))
+* **workflow:** fix test verification for tool cache and allow manual runs ([1f5069a](https://github.com/CHC383/baidu-netdisk-upload-action/commit/1f5069a49b9b6fc72573bce512eec9bc22066c1b))
+* **workflow:** fix typo and update step name ([3b01361](https://github.com/CHC383/baidu-netdisk-upload-action/commit/3b01361b1ddd8ba74e341fae10fd94d52c6e901a))
+* **workflow:** skip duplicate main runs and test merges to main ([3195bda](https://github.com/CHC383/baidu-netdisk-upload-action/commit/3195bda919bab89cf3fec1c0e74abfba0af74ccc))
+
+
+### 🔨 Build System
+
+* **deps:** update dependency @biomejs/biome to v2.5.0 ([6cc7e7d](https://github.com/CHC383/baidu-netdisk-upload-action/commit/6cc7e7db3a87362aaad7455fd70ad3305178a989))
+* **deps:** update dependency @types/node to ^24.13.0 ([#86](https://github.com/CHC383/baidu-netdisk-upload-action/issues/86)) ([d9cdf1f](https://github.com/CHC383/baidu-netdisk-upload-action/commit/d9cdf1fd7a981749c9f333327ae9e7f65a14c196))
+* **deps:** update dependency @types/node to ^24.13.1 ([#88](https://github.com/CHC383/baidu-netdisk-upload-action/issues/88)) ([93a0e0b](https://github.com/CHC383/baidu-netdisk-upload-action/commit/93a0e0bd5fabf400b8dc59a1b4f08fcc05e0535d))
+* **deps:** update dependency @types/node to ^24.13.2 ([#89](https://github.com/CHC383/baidu-netdisk-upload-action/issues/89)) ([d44d81c](https://github.com/CHC383/baidu-netdisk-upload-action/commit/d44d81c3a7d0fe7194dd0226a24bbbf68f637af6))
+* **deps:** update dependency tsdown to ^0.22.2 ([fffa9ff](https://github.com/CHC383/baidu-netdisk-upload-action/commit/fffa9ffc26b8f78197f35b1679e56b90400d6746))
+* **deps:** update pnpm to v11.5.2 ([#87](https://github.com/CHC383/baidu-netdisk-upload-action/issues/87)) ([e5e73d0](https://github.com/CHC383/baidu-netdisk-upload-action/commit/e5e73d0b293a1d97e24692a744b49c0492bd212a))
+* **deps:** update pnpm to v11.5.3 ([#90](https://github.com/CHC383/baidu-netdisk-upload-action/issues/90)) ([61e1a7c](https://github.com/CHC383/baidu-netdisk-upload-action/commit/61e1a7c9712a8ea1f5b074fcd6a711371fb0b27b))
+* **deps:** update pnpm to v11.6.0 ([ea3ebb5](https://github.com/CHC383/baidu-netdisk-upload-action/commit/ea3ebb5b70ec7453d326d8fdb165df33cf57e39e))
+
 ## [1.5.0](https://github.com/CHC383/baidu-netdisk-upload-action/compare/baidu-netdisk-upload-action-v1.4.0...baidu-netdisk-upload-action-v1.5.0) (2026-06-05)
 
 
