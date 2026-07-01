@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.1](https://github.com/CHC383/baidu-netdisk-upload-action/compare/v1.6.0...v1.6.1) (2026-07-01)
+
+
+### 🔨 Build System
+
+* **deps:** lock file maintenance ([#104](https://github.com/CHC383/baidu-netdisk-upload-action/issues/104)) ([143bc27](https://github.com/CHC383/baidu-netdisk-upload-action/commit/143bc27fa3cc69311f289d9a306fc741d2aba475))
+* **deps:** update actions/checkout action to v7 ([34a4fde](https://github.com/CHC383/baidu-netdisk-upload-action/commit/34a4fde1211ce3f8ab397317e3ee8dae2f6de155))
+* **deps:** update dependency @biomejs/biome to v2.5.1 ([#102](https://github.com/CHC383/baidu-netdisk-upload-action/issues/102)) ([431e9f8](https://github.com/CHC383/baidu-netdisk-upload-action/commit/431e9f871d88b1281ae9fad1c2d847d5355cfc1f))
+* **deps:** update dependency tsdown to ^0.22.3 ([#97](https://github.com/CHC383/baidu-netdisk-upload-action/issues/97)) ([29c5566](https://github.com/CHC383/baidu-netdisk-upload-action/commit/29c55664785fb97d75ea196864db25d72bb1d57d))
+* **deps:** update node.js to v24.17.0 ([#98](https://github.com/CHC383/baidu-netdisk-upload-action/issues/98)) ([5887be3](https://github.com/CHC383/baidu-netdisk-upload-action/commit/5887be3f1b8ba8ad39fff9d07c8ff2ec37419df4))
+* **deps:** update node.js to v24.18.0 ([#101](https://github.com/CHC383/baidu-netdisk-upload-action/issues/101)) ([eeb7f74](https://github.com/CHC383/baidu-netdisk-upload-action/commit/eeb7f741164e26de3404b74c39db9df6e861dd99))
+* **deps:** update pnpm to v11.7.0 ([#95](https://github.com/CHC383/baidu-netdisk-upload-action/issues/95)) ([aeadef9](https://github.com/CHC383/baidu-netdisk-upload-action/commit/aeadef9e140e9ac900f0daaa5958741e20141937))
+* **deps:** update pnpm to v11.8.0 ([#100](https://github.com/CHC383/baidu-netdisk-upload-action/issues/100)) ([a1ac17d](https://github.com/CHC383/baidu-netdisk-upload-action/commit/a1ac17de6f4c25a06e532ca8efa83b4c3c2335e6))
+* **deps:** update pnpm to v11.9.0 ([#103](https://github.com/CHC383/baidu-netdisk-upload-action/issues/103)) ([ddda64b](https://github.com/CHC383/baidu-netdisk-upload-action/commit/ddda64bdf3596ef9c662a95d60fba209b7cd9f8a))
+
 ## [1.6.0](https://github.com/CHC383/baidu-netdisk-upload-action/compare/v1.5.0...v1.6.0) (2026-06-13)
 
 
