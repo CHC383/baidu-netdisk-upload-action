@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.2](https://github.com/CHC383/baidu-netdisk-upload-action/compare/v1.6.1...v1.6.2) (2026-09-05)
+
+
+### 🔨 Build System
+
+* **deps:** update dependency @biomejs/biome to v2.5.11 ([#147](https://github.com/CHC383/baidu-netdisk-upload-action/issues/147)) ([fe2007c](https://github.com/CHC383/baidu-netdisk-upload-action/commit/fe2007c8263eb0e16e52941f6aeafd77c2c7b1f4))
+* **deps:** update dependency @biomejs/biome to v2.5.12 ([#150](https://github.com/CHC383/baidu-netdisk-upload-action/issues/150)) ([4ffafb2](https://github.com/CHC383/baidu-netdisk-upload-action/commit/4ffafb20557915c19a8ab8fc9ffab676804ffaea))
+* **deps:** update dependency lefthook to ^2.1.12 ([#148](https://github.com/CHC383/baidu-netdisk-upload-action/issues/148)) ([df34114](https://github.com/CHC383/baidu-netdisk-upload-action/commit/df34114c8ab63be7866fd486cadb860ba476d790))
+* **deps:** update dependency tsdown to ^0.23.0 ([#151](https://github.com/CHC383/baidu-netdisk-upload-action/issues/151)) ([983db1e](https://github.com/CHC383/baidu-netdisk-upload-action/commit/983db1e4664ae811ea011a7b1683b66a9b8f0d0b))
+* **deps:** update node.js to v24.20.0 ([#146](https://github.com/CHC383/baidu-netdisk-upload-action/issues/146)) ([84406fc](https://github.com/CHC383/baidu-netdisk-upload-action/commit/84406fc6bdc1ed84cc958b185215c3740a927603))
+* **deps:** update pnpm to v11.24.0 ([#144](https://github.com/CHC383/baidu-netdisk-upload-action/issues/144)) ([f5001f1](https://github.com/CHC383/baidu-netdisk-upload-action/commit/f5001f1ed8783f5466940aeb673d08a6d0bba458))
+* **deps:** update pnpm to v11.25.0 ([#149](https://github.com/CHC383/baidu-netdisk-upload-action/issues/149)) ([dd3e63e](https://github.com/CHC383/baidu-netdisk-upload-action/commit/dd3e63eaebaf4de384a4f61e10c2594f15e81ffe))
+
 ## [1.6.1](https://github.com/CHC383/baidu-netdisk-upload-action/compare/v1.6.0...v1.6.1) (2026-08-22)
 
 
