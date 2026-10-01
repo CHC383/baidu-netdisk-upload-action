@@ -23,7 +23,7 @@
     "@actions/tool-cache": "^4.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
+    "@biomejs/biome": "^2.5.15",
     "@types/node": "^24.19.0",
     "lefthook": "^2.1.15",
     "tsdown": "^0.23.0",
