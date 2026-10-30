@@ -1,5 +1,64 @@
 # Changelog
 
+## [1.6.2](https://github.com/CHC383/baidu-netdisk-upload-action/compare/v1.6.1...v1.6.2) (2026-10-30)
+
+
+### 🔧 Maintenance / Chores
+
+* **biome:** exclude generated pnpm-lock.yaml and CHANGELOG.md ([2a2b6b3](https://github.com/CHC383/baidu-netdisk-upload-action/commit/2a2b6b3fca313c745fb182b68ae0a2ecaa9e1027))
+* **biome:** fix recommended preset config and format ([e45b120](https://github.com/CHC383/baidu-netdisk-upload-action/commit/e45b120f4d4987a23e8e90e51d1749e2d81f1ba7))
+
+
+### 🔨 Build System
+
+* **deps:** update dependency @biomejs/biome to v2.5.11 ([#147](https://github.com/CHC383/baidu-netdisk-upload-action/issues/147)) ([fe2007c](https://github.com/CHC383/baidu-netdisk-upload-action/commit/fe2007c8263eb0e16e52941f6aeafd77c2c7b1f4))
+* **deps:** update dependency @biomejs/biome to v2.5.12 ([#150](https://github.com/CHC383/baidu-netdisk-upload-action/issues/150)) ([4ffafb2](https://github.com/CHC383/baidu-netdisk-upload-action/commit/4ffafb20557915c19a8ab8fc9ffab676804ffaea))
+* **deps:** update dependency @biomejs/biome to v2.5.13 ([#156](https://github.com/CHC383/baidu-netdisk-upload-action/issues/156)) ([7ba9527](https://github.com/CHC383/baidu-netdisk-upload-action/commit/7ba9527ca64aecedb964540b84fe340838f2cf98))
+* **deps:** update dependency @biomejs/biome to v2.5.14 ([#160](https://github.com/CHC383/baidu-netdisk-upload-action/issues/160)) ([eef1834](https://github.com/CHC383/baidu-netdisk-upload-action/commit/eef183433d094bc26f6317f28509ac70c211b013))
+* **deps:** update dependency @biomejs/biome to v2.5.15 ([#167](https://github.com/CHC383/baidu-netdisk-upload-action/issues/167)) ([ee06942](https://github.com/CHC383/baidu-netdisk-upload-action/commit/ee069427c49a36529f393077a20e751b8637a956))
+* **deps:** update dependency @biomejs/biome to v2.6.3 ([cc6982c](https://github.com/CHC383/baidu-netdisk-upload-action/commit/cc6982cd0377db217a81312c4e7aa87424c6ca43))
+* **deps:** update dependency @biomejs/biome to v2.6.4 ([#191](https://github.com/CHC383/baidu-netdisk-upload-action/issues/191)) ([bcb6e48](https://github.com/CHC383/baidu-netdisk-upload-action/commit/bcb6e489047ceac890e49c564ffd5717ac1dece2))
+* **deps:** update dependency @types/node to ^24.13.4 ([#155](https://github.com/CHC383/baidu-netdisk-upload-action/issues/155)) ([efbdddc](https://github.com/CHC383/baidu-netdisk-upload-action/commit/efbdddcaa9caa6bb6fcc4501f85ea89547487b0e))
+* **deps:** update dependency @types/node to ^24.13.5 ([#159](https://github.com/CHC383/baidu-netdisk-upload-action/issues/159)) ([80d4a96](https://github.com/CHC383/baidu-netdisk-upload-action/commit/80d4a96dc08ccb47d602d045f801619086abc171))
+* **deps:** update dependency @types/node to ^24.13.6 ([#161](https://github.com/CHC383/baidu-netdisk-upload-action/issues/161)) ([ccf6eb2](https://github.com/CHC383/baidu-netdisk-upload-action/commit/ccf6eb2d556d625a6a74c2ae2da0d801086b2d84))
+* **deps:** update dependency @types/node to ^24.19.0 ([#164](https://github.com/CHC383/baidu-netdisk-upload-action/issues/164)) ([d9cf8e4](https://github.com/CHC383/baidu-netdisk-upload-action/commit/d9cf8e44a26b478f8f56689826fea9cf07aea492))
+* **deps:** update dependency @types/node to ^24.19.1 ([#169](https://github.com/CHC383/baidu-netdisk-upload-action/issues/169)) ([b7089a3](https://github.com/CHC383/baidu-netdisk-upload-action/commit/b7089a330e233728d9a4db535d264f7ff5a1ea03))
+* **deps:** update dependency @types/node to ^24.19.2 ([#177](https://github.com/CHC383/baidu-netdisk-upload-action/issues/177)) ([617af75](https://github.com/CHC383/baidu-netdisk-upload-action/commit/617af7558e59ef7a87b1ebdb720294924f768295))
+* **deps:** update dependency @types/node to ^26.6.6 ([#190](https://github.com/CHC383/baidu-netdisk-upload-action/issues/190)) ([091ca44](https://github.com/CHC383/baidu-netdisk-upload-action/commit/091ca44a8c28fb252b142e54d8cdfa34da95cc0a))
+* **deps:** update dependency lefthook to ^2.1.12 ([#148](https://github.com/CHC383/baidu-netdisk-upload-action/issues/148)) ([df34114](https://github.com/CHC383/baidu-netdisk-upload-action/commit/df34114c8ab63be7866fd486cadb860ba476d790))
+* **deps:** update dependency lefthook to ^2.1.14 ([#158](https://github.com/CHC383/baidu-netdisk-upload-action/issues/158)) ([371d31a](https://github.com/CHC383/baidu-netdisk-upload-action/commit/371d31ad2e4d9580a7c9e0584cdc26cc33869e3e))
+* **deps:** update dependency lefthook to ^2.1.15 ([#166](https://github.com/CHC383/baidu-netdisk-upload-action/issues/166)) ([70d3d0e](https://github.com/CHC383/baidu-netdisk-upload-action/commit/70d3d0e281f5b47e9c79c362cf88a9f02a082170))
+* **deps:** update dependency lefthook to ^2.1.16 ([#168](https://github.com/CHC383/baidu-netdisk-upload-action/issues/168)) ([62bd9be](https://github.com/CHC383/baidu-netdisk-upload-action/commit/62bd9be7e69a3a3b605baf92123e96445619d309))
+* **deps:** update dependency lefthook to ^2.1.17 ([#172](https://github.com/CHC383/baidu-netdisk-upload-action/issues/172)) ([ec3610a](https://github.com/CHC383/baidu-netdisk-upload-action/commit/ec3610ace4f474c7a0103dc1df9953d4878ed786))
+* **deps:** update dependency lefthook to ^2.2.0 ([#174](https://github.com/CHC383/baidu-netdisk-upload-action/issues/174)) ([aa82ed7](https://github.com/CHC383/baidu-netdisk-upload-action/commit/aa82ed766c406e994eeb8c29d09ab687f5455999))
+* **deps:** update dependency lefthook to ^2.2.1 ([#175](https://github.com/CHC383/baidu-netdisk-upload-action/issues/175)) ([c2b0997](https://github.com/CHC383/baidu-netdisk-upload-action/commit/c2b09971238fd681633df281a1d3b7c0dce26a46))
+* **deps:** update dependency lefthook to ^2.2.2 ([#179](https://github.com/CHC383/baidu-netdisk-upload-action/issues/179)) ([329968e](https://github.com/CHC383/baidu-netdisk-upload-action/commit/329968e2b9488347e1b13d9ec2053048b53614a7))
+* **deps:** update dependency tsdown to ^0.23.0 ([#151](https://github.com/CHC383/baidu-netdisk-upload-action/issues/151)) ([983db1e](https://github.com/CHC383/baidu-netdisk-upload-action/commit/983db1e4664ae811ea011a7b1683b66a9b8f0d0b))
+* **deps:** update dependency tsdown to ^0.23.1 ([#178](https://github.com/CHC383/baidu-netdisk-upload-action/issues/178)) ([53b0e12](https://github.com/CHC383/baidu-netdisk-upload-action/commit/53b0e12099601c9e0d09d19c005dc1370d19ea3a))
+* **deps:** update dependency tsdown to ^0.23.2 ([#185](https://github.com/CHC383/baidu-netdisk-upload-action/issues/185)) ([83ce797](https://github.com/CHC383/baidu-netdisk-upload-action/commit/83ce797438702953af6a84caa47b4005cf32fb6b))
+* **deps:** update dependency tsdown to ^0.23.3 ([#189](https://github.com/CHC383/baidu-netdisk-upload-action/issues/189)) ([0e640aa](https://github.com/CHC383/baidu-netdisk-upload-action/commit/0e640aa8be259cd827de8bcd55a8e687fad48e61))
+* **deps:** update dependency tsdown to ^0.23.4 ([#192](https://github.com/CHC383/baidu-netdisk-upload-action/issues/192)) ([f6243af](https://github.com/CHC383/baidu-netdisk-upload-action/commit/f6243af7b02e6b8f4f0c973a7382866e3ced639f))
+* **deps:** update node.js to v24.20.0 ([#146](https://github.com/CHC383/baidu-netdisk-upload-action/issues/146)) ([84406fc](https://github.com/CHC383/baidu-netdisk-upload-action/commit/84406fc6bdc1ed84cc958b185215c3740a927603))
+* **deps:** update node.js to v24.21.0 ([#154](https://github.com/CHC383/baidu-netdisk-upload-action/issues/154)) ([cece616](https://github.com/CHC383/baidu-netdisk-upload-action/commit/cece616954e2d70284a9470279f3089685e86c20))
+* **deps:** update node.js to v24.22.0 ([#180](https://github.com/CHC383/baidu-netdisk-upload-action/issues/180)) ([8a6acf7](https://github.com/CHC383/baidu-netdisk-upload-action/commit/8a6acf73f032850629ea516a4209777f6814f07f))
+* **deps:** update node.js to v24.22.1 ([#182](https://github.com/CHC383/baidu-netdisk-upload-action/issues/182)) ([9b67bc4](https://github.com/CHC383/baidu-netdisk-upload-action/commit/9b67bc498923493e8469384ec1cb5b1cf13a6247))
+* **deps:** update node.js to v24.22.2 ([#188](https://github.com/CHC383/baidu-netdisk-upload-action/issues/188)) ([2c9f799](https://github.com/CHC383/baidu-netdisk-upload-action/commit/2c9f799f5cf73485e7e372f020cf6023eb27f687))
+* **deps:** update node.js to v26 ([3581ea2](https://github.com/CHC383/baidu-netdisk-upload-action/commit/3581ea2749df08ac8f53916c07d829e0ed8cdea6))
+* **deps:** update pnpm to v11.24.0 ([#144](https://github.com/CHC383/baidu-netdisk-upload-action/issues/144)) ([f5001f1](https://github.com/CHC383/baidu-netdisk-upload-action/commit/f5001f1ed8783f5466940aeb673d08a6d0bba458))
+* **deps:** update pnpm to v11.25.0 ([#149](https://github.com/CHC383/baidu-netdisk-upload-action/issues/149)) ([dd3e63e](https://github.com/CHC383/baidu-netdisk-upload-action/commit/dd3e63eaebaf4de384a4f61e10c2594f15e81ffe))
+* **deps:** update pnpm to v11.26.0 ([#153](https://github.com/CHC383/baidu-netdisk-upload-action/issues/153)) ([18dc6ed](https://github.com/CHC383/baidu-netdisk-upload-action/commit/18dc6ed483d763b3e4ff7a38d1294fb62a00ab6d))
+* **deps:** update pnpm to v11.27.0 ([#157](https://github.com/CHC383/baidu-netdisk-upload-action/issues/157)) ([d87f188](https://github.com/CHC383/baidu-netdisk-upload-action/commit/d87f188fa15641d9168c37e177f122cd916765fa))
+* **deps:** update pnpm to v12 ([98b56dc](https://github.com/CHC383/baidu-netdisk-upload-action/commit/98b56dc581e26e231e379325eb9fa8a6f75a48d2))
+* **deps:** update pnpm to v12.10.1 ([#173](https://github.com/CHC383/baidu-netdisk-upload-action/issues/173)) ([c2449f3](https://github.com/CHC383/baidu-netdisk-upload-action/commit/c2449f32ee4e496ce296da6325c0ecaeba34aa73))
+* **deps:** update pnpm to v12.11.2 ([#176](https://github.com/CHC383/baidu-netdisk-upload-action/issues/176)) ([d2d0daf](https://github.com/CHC383/baidu-netdisk-upload-action/commit/d2d0daf448c814085499b633fb1a509ef88f38de))
+* **deps:** update pnpm to v12.14.0 ([#181](https://github.com/CHC383/baidu-netdisk-upload-action/issues/181)) ([5280095](https://github.com/CHC383/baidu-netdisk-upload-action/commit/52800955d37a47a410576dddd50025429aa2aefa))
+* **deps:** update pnpm to v12.15.0 ([#184](https://github.com/CHC383/baidu-netdisk-upload-action/issues/184)) ([f277a70](https://github.com/CHC383/baidu-netdisk-upload-action/commit/f277a706dfdeeadbea8868da6ce14760e3508b95))
+* **deps:** update pnpm to v12.16.1 ([#187](https://github.com/CHC383/baidu-netdisk-upload-action/issues/187)) ([01beb81](https://github.com/CHC383/baidu-netdisk-upload-action/commit/01beb81bca6ce22f109cb122126e396fe8ff4eb4))
+* **deps:** update pnpm to v12.6.0 ([#163](https://github.com/CHC383/baidu-netdisk-upload-action/issues/163)) ([8027db4](https://github.com/CHC383/baidu-netdisk-upload-action/commit/8027db4b26a2b5f66ed5b6be1b9d1579a4385565))
+* **deps:** update pnpm to v12.8.1 ([#165](https://github.com/CHC383/baidu-netdisk-upload-action/issues/165)) ([c6b40a8](https://github.com/CHC383/baidu-netdisk-upload-action/commit/c6b40a805f4491f92119e2635147aad14ee478ca))
+* **deps:** update pnpm to v12.9.0 ([#170](https://github.com/CHC383/baidu-netdisk-upload-action/issues/170)) ([f9f14aa](https://github.com/CHC383/baidu-netdisk-upload-action/commit/f9f14aae9352edac1a9e199c5e4ead6b22a1fa36))
+* **deps:** update pnpm to v12.9.1 ([#171](https://github.com/CHC383/baidu-netdisk-upload-action/issues/171)) ([94f99a9](https://github.com/CHC383/baidu-netdisk-upload-action/commit/94f99a93b932cc26259bbdef284928494c3a2ca2))
+
 ## [1.6.1](https://github.com/CHC383/baidu-netdisk-upload-action/compare/v1.6.0...v1.6.1) (2026-08-22)
 
 
